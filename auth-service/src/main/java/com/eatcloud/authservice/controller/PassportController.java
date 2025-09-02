@@ -45,7 +45,6 @@ public class PassportController {
     public ResponseEntity<Map<String, Object>> exchange(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         
-        // 디버깅용 로그 추가
         System.out.println("===== Token Exchange Debug =====");
         System.out.println("Authorization header received: " + authorization);
         
