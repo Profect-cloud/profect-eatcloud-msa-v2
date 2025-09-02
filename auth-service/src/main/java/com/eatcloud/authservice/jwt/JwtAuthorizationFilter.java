@@ -30,10 +30,18 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		if (path.startsWith("/api/v1/auth/")) {
+		// /api/v1/auth/ 로 시작하는 모든 경로는 필터 건너뛰기
+		// token/exchange 포함!
+		if (path.contains("/api/v1/auth/")) {
 			return true;
 		}
 		if (path.startsWith("/oauth2/") || path.startsWith("/auth/success")) {
+			return true;
+		}
+		if (path.contains("/swagger") || path.contains("/v3/api-docs") || path.contains("/webjars")) {
+			return true;
+		}
+		if (path.contains("/actuator")) {
 			return true;
 		}
 		return false;
@@ -83,4 +91,3 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 	}
 
 }
-
