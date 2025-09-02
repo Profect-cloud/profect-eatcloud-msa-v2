@@ -1,0 +1,95 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Docker & Environment ###
+# 로그 파일들
+logs/
+*.log
+
+# Docker 관련
+.docker/
+docker-compose.override.yml
+
+# 환경 변수 - 보안 중요!
+.env
+.env.local
+.env.*.local
+deploy/env/prod/.env.local
+*.env
+.env*
+deploy/env/**/*.env
+
+# 임시 파일들
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+### Application ###
+# 애플리케이션 로그
+/logs/
+/log/
+
+# 스프링 부트 관련
+application-local.yml
+application-local.properties
+application-secret.yml
+application-secret.properties
+
+# 테스트 결과
+/test-results/
+/reports/
+
+### OS ###
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+### Docker Volumes ###
+# Docker 볼륨 데이터 (로컬 개발시)
+/docker-volumes/
+/data/

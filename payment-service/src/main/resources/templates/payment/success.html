@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>결제 완료</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .success-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: bounce 1s ease-out;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .payment-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .payment-info h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .info-row .label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .info-row .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .info-row .value.amount {
+            font-size: 20px;
+            color: #28a745;
+        }
+        
+        .info-row .value.status {
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .thank-you {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+        }
+        
+        .thank-you h2 {
+            color: #28a745;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .thank-you p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #3182f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1b64da;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        .receipt-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .receipt-info .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .receipt-info p {
+            font-size: 14px;
+            color: #856404;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="success-icon">🎉</div>
+            <h1>결제가 완료되었습니다!</h1>
+            <p>안전하게 결제가 처리되었습니다</p>
+        </div>
+        
+        <div class="content">
+            <div class="payment-info">
+                <h3>📋 결제 상세 정보</h3>
+                
+                <div class="info-row">
+                    <span class="label">주문번호</span>
+                    <span class="value" th:text="${orderId}">ORDER_123456</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="label">결제금액</span>
+                    <span class="value amount" th:text="${amount + '원'}">1,000원</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="label">결제상태</span>
+                    <span class="value status" th:text="${status}">DONE</span>
+                </div>
+                
+                <div class="info-row" th:if="${method}">
+                    <span class="label">결제수단</span>
+                    <span class="value" th:text="${method}">카드</span>
+                </div>
+                
+                <div class="info-row" th:if="${approvedAt}">
+                    <span class="label">결제승인시간</span>
+                    <span class="value" th:text="${approvedAt}">2024-01-01 12:00:00</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="label">결제키</span>
+                    <span class="value" style="font-size: 12px; color: #666; word-break: break-all;" th:text="${paymentKey}">payment_key_123</span>
+                </div>
+            </div>
+            
+            <div class="thank-you">
+                <h2>🙏 감사합니다!</h2>
+                <p>
+                    포인트가 정상적으로 충전되었습니다.<br>
+                    이용해 주셔서 감사합니다.
+                </p>
+            </div>
+            
+            <div class="actions">
+                <a href="/payments/charge" class="btn btn-secondary">다시 결제하기</a>
+                <a href="/" class="btn btn-primary">메인으로 이동</a>
+            </div>
+            
+            <div class="receipt-info">
+                <div class="icon">📧</div>
+                <p>결제 확인서가 등록하신 이메일로 발송됩니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        console.log('=== 결제 성공 페이지 ===');
+        console.log('주문번호:', /*[[${orderId}]]*/ 'ORDER_123456');
+        console.log('결제금액:', /*[[${amount}]]*/ 1);
+        console.log('결제상태:', /*[[${status}]]*/ 'DONE');
+        console.log('결제수단:', /*[[${method}]]*/ 'CARD');
+        console.log('결제키:', /*[[${paymentKey}]]*/ 'payment_key_123');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('결제 성공 페이지 로드 완료');
+        });
+    </script>
+</body>
+</html> 

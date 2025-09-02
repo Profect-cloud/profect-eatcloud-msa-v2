@@ -1,0 +1,18 @@
+name: "♻️ Refactor"
+description: "코드 리팩토링"
+labels: ["refactor"]
+body:
+  - type: textarea
+    attributes:
+      label: 🔨 리팩토링 대상
+      description: 리팩토링이 필요한 코드를 설명해 주세요.
+      placeholder: 예) OrderService의 order 생성 로직이 복잡합니다.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 💡 개선 방향
+      description: 어떻게 개선하고 싶은지 구체적으로 작성해 주세요.
+      placeholder: 예) 메서드 분리 및 중복 로직 제거
+    validations:
+      required: true

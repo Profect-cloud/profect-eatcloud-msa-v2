@@ -1,0 +1,18 @@
+name: "🚀 Deploy"
+description: "배포 관련 이슈"
+labels: ["deploy"]
+body:
+  - type: input
+    attributes:
+      label: 📅 배포 일시
+      description: 배포 예정 일시를 입력해주세요. (예: 2025-08-15 14:00)
+      placeholder: YYYY-MM-DD HH:mm
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 📝 배포 내용
+      description: 배포될 기능, 수정사항, 변경된 점 등을 상세히 적어주세요.
+      placeholder: 예) 회원가입 버그 수정, 결제 API 개선, UI 디자인 변경 등
+    validations:
+      required: true

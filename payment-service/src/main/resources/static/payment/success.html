@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>토스페이먼츠 결제 완료</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .wrapper {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            padding: 40px 30px;
+        }
+        .success-icon {
+            width: 100px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #191f28;
+            margin-bottom: 30px;
+        }
+        .info-grid {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e5e8eb;
+        }
+        .info-grid:last-child {
+            border-bottom: none;
+        }
+        .button {
+            padding: 12px 24px;
+            margin: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+        }
+        .button-primary {
+            background-color: #3182f6;
+            color: white;
+        }
+        .button-secondary {
+            background-color: #e8f3ff;
+            color: #1b64da;
+        }
+        .response-section {
+            margin-top: 30px;
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .loading {
+            color: #666;
+            margin: 20px 0;
+        }
+        .error {
+            color: #f56565;
+            background-color: #fed7d7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .success {
+            color: #38a169;
+            background-color: #c6f6d5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+<div class="wrapper">
+    <img class="success-icon" src="https://static.toss.im/illusts/check-blue-spot-ending-frame.png" alt="결제 완료" />
+    <h2>🎉 결제가 완료되었습니다!</h2>
+
+    <div class="payment-info">
+        <div class="info-grid">
+            <div><b>결제금액</b></div>
+            <div id="amount">-</div>
+        </div>
+        <div class="info-grid">
+            <div><b>주문번호</b></div>
+            <div id="orderId">-</div>
+        </div>
+        <div class="info-grid">
+            <div><b>결제키</b></div>
+            <div id="paymentKey" style="word-break: break-all; max-width: 250px;">-</div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        ⏳ 결제 승인 처리 중입니다...
+    </div>
+
+    <div id="result-message" style="display: none;"></div>
+
+    <div style="margin-top: 30px; display: none;" id="action-buttons">
+        <a href="https://docs.tosspayments.com/guides/v2/payment-widget/integration" class="button button-primary">연동 문서</a>
+        <a href="https://discord.gg/A4fRFXQhRu" class="button button-secondary">실시간 문의</a>
+    </div>
+
+    <div class="response-section" style="display: none;" id="response-section">
+        <b>🔍 서버 응답 데이터:</b>
+        <div id="response" style="white-space: pre-wrap; margin-top: 10px; font-family: monospace;"></div>
+    </div>
+</div>
+
+<script>
+    console.log('=== 결제 성공 페이지 로드 ===');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentKey = urlParams.get("paymentKey");
+    const orderId = urlParams.get("orderId");
+    const amount = urlParams.get("amount");
+    
+    console.log('결제 정보:', { paymentKey, orderId, amount });
+
+    if (paymentKey && orderId && amount) {
+        document.getElementById("paymentKey").textContent = paymentKey;
+        document.getElementById("orderId").textContent = orderId;
+        document.getElementById("amount").textContent = parseInt(amount).toLocaleString() + "원";
+    }
+
+    async function confirmPayment() {
+        console.log('=== 서버에 결제 승인 요청 시작 ===');
+        
+        if (!paymentKey || !orderId || !amount) {
+            showError('결제 정보가 누락되었습니다.');
+            return;
+        }
+
+        const requestData = {
+            paymentKey: paymentKey,
+            orderId: orderId,
+            amount: parseInt(amount)
+        };
+        
+        console.log('승인 요청 데이터:', requestData);
+
+        try {
+            const response = await fetch("/api/payments/confirm", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestData),
+            });
+
+            const responseData = await response.json();
+            console.log('서버 응답:', responseData);
+
+            document.getElementById("response").textContent = JSON.stringify(responseData, null, 2);
+            document.getElementById("response-section").style.display = "block";
+
+            if (response.ok) {
+                showSuccess('결제 승인이 완료되었습니다! 🎉');
+            } else {
+                throw new Error(responseData.message || '결제 승인에 실패했습니다.');
+            }
+
+        } catch (error) {
+            console.error('결제 승인 실패:', error);
+            showError(`결제 승인 실패: ${error.message}`);
+
+        }
+    }
+
+    function showSuccess(message) {
+        const loadingEl = document.getElementById("loading");
+        const resultEl = document.getElementById("result-message");
+        const buttonsEl = document.getElementById("action-buttons");
+        
+        loadingEl.style.display = "none";
+        resultEl.className = "success";
+        resultEl.textContent = message;
+        resultEl.style.display = "block";
+        buttonsEl.style.display = "block";
+    }
+
+    function showError(message) {
+        const loadingEl = document.getElementById("loading");
+        const resultEl = document.getElementById("result-message");
+        
+        loadingEl.style.display = "none";
+        resultEl.className = "error";
+        resultEl.textContent = message;
+        resultEl.style.display = "block";
+    }
+
+    window.onload = function() {
+        console.log('페이지 로드 완료, 결제 승인 요청 시작');
+        confirmPayment();
+    };
+</script>
+
+</body>
+</html> 

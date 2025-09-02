@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>토스페이먼츠 결제</title>
+    <script src="https://js.tosspayments.com/v2/standard"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3182f6, #1b64da);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3182f6;
+        }
+        
+        .amount-display {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .amount-display .label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .amount-display .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #3182f6;
+        }
+        
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .payment-method {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .payment-method:hover {
+            border-color: #3182f6;
+            background: #f8faff;
+        }
+        
+        .payment-method.selected {
+            border-color: #3182f6;
+            background: #f8faff;
+            color: #3182f6;
+        }
+        
+        .payment-method .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .payment-method .name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .pay-button {
+            width: 100%;
+            background: #3182f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .pay-button:hover {
+            background: #1b64da;
+        }
+        
+        .pay-button:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+        
+        .order-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .order-info h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-row .label {
+            color: #666;
+        }
+        
+        .info-row .value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3182f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💳 결제하기</h1>
+            <p>안전하고 간편한 토스페이먼츠 결제</p>
+        </div>
+        
+        <div class="content">
+            <div class="order-info">
+                <h3>📋 주문 정보</h3>
+                <div class="info-row">
+                    <span class="label">주문번호</span>
+                    <span class="value" th:text="${orderId}">ORDER_123456</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">상품명</span>
+                    <span class="value">포인트 충전</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">사용자 ID</span>
+                    <span class="value" th:text="${userId}">user_123</span>
+                </div>
+            </div>
+
+            <div class="amount-display">
+                <div class="label">결제 금액</div>
+                <div class="value" th:text="${amount + '원'}">1,000원</div>
+            </div>
+
+            <div class="form-group">
+                <label for="customerName">👤 고객명</label>
+                <input type="text" id="customerName" value="홍길동" placeholder="고객명을 입력하세요">
+            </div>
+            
+            <div class="form-group">
+                <label for="customerEmail">📧 이메일</label>
+                <input type="email" id="customerEmail" value="customer@example.com" placeholder="이메일을 입력하세요">
+            </div>
+            
+            <div class="form-group">
+                <label for="customerPhone">📱 휴대폰 번호</label>
+                <input type="tel" id="customerPhone" value="01012345678" placeholder="휴대폰 번호를 입력하세요">
+            </div>
+
+            <div class="form-group">
+                <label>💳 결제 수단</label>
+                <div class="payment-methods">
+                    <div class="payment-method selected" data-method="CARD">
+                        <div class="icon">💳</div>
+                        <div class="name">카드</div>
+                    </div>
+                    <div class="payment-method" data-method="TRANSFER">
+                        <div class="icon">🏦</div>
+                        <div class="name">계좌이체</div>
+                    </div>
+                    <div class="payment-method" data-method="VIRTUAL_ACCOUNT">
+                        <div class="icon">🧾</div>
+                        <div class="name">가상계좌</div>
+                    </div>
+                    <div class="payment-method" data-method="MOBILE_PHONE">
+                        <div class="icon">📱</div>
+                        <div class="name">휴대폰</div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="payButton" class="pay-button" type="button">
+                <span th:text="${amount + '원 결제하기'}">1,000원 결제하기</span>
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>결제 처리 중입니다...</p>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const clientKey = /*[[${clientKey}]]*/ 'test_ck_PBal2vxj81zE0aPZaJJw35RQgOAN';
+        const userId = /*[[${userId}]]*/ 'user_123';
+        const serverOrderIdRaw = '[[${orderId}]]';
+        const orderId = (serverOrderIdRaw && serverOrderIdRaw !== 'null'
+            ? serverOrderIdRaw.replace(/^\"|\"$/g, '')
+            : ('ORDER_' + Math.random().toString(36).substring(2, 15))
+        );
+        const amount = /*[[${amount}]]*/ 1;
+        
+        console.log('=== 결제 페이지 초기화 ===');
+        console.log('Client Key:', clientKey);
+        console.log('User ID:', userId);
+        console.log('Order ID:', orderId);
+        console.log('Amount:', amount);
+
+        let selectedPaymentMethod = 'CARD';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.payment-method').forEach(method => {
+                method.addEventListener('click', function() {
+                    document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+
+                    this.classList.add('selected');
+                    selectedPaymentMethod = this.getAttribute('data-method');
+                    
+                    console.log('결제 수단 선택:', selectedPaymentMethod);
+                });
+            });
+            var payBtn = document.getElementById('payButton');
+            if (payBtn) {
+                payBtn.addEventListener('click', function() {
+                    if (typeof window.requestPayment === 'function') {
+                        window.requestPayment();
+                    } else {
+                        alert('페이지가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+                    }
+                });
+            }
+        });
+
+        window.requestPayment = async function() {
+            console.log('=== 결제 요청 시작 ===');
+
+            const customerName = document.getElementById('customerName').value.trim();
+            const customerEmail = document.getElementById('customerEmail').value.trim();
+            const customerPhone = document.getElementById('customerPhone').value.trim();
+            
+            if (!customerName) {
+                alert('고객명을 입력해주세요.');
+                return;
+            }
+            
+            if (!customerEmail) {
+                alert('이메일을 입력해주세요.');
+                return;
+            }
+            
+            if (!customerPhone) {
+                alert('휴대폰 번호를 입력해주세요.');
+                return;
+            }
+
+            document.getElementById('loading').classList.add('show');
+            document.querySelector('.pay-button').disabled = true;
+            
+            try {
+                console.log('선택한 결제수단:', selectedPaymentMethod);
+                console.log('고객명:', customerName);
+                console.log('이메일:', customerEmail);
+                console.log('휴대폰:', customerPhone);
+
+                const tp = window.TossPayments ? TossPayments(clientKey) : null;
+                if (!tp) {
+                    alert('결제 SDK 로드에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                    document.getElementById('loading').classList.remove('show');
+                    document.querySelector('.pay-button').disabled = false;
+                    return;
+                }
+                const payment = tp.payment({ customerKey: userId });
+
+                await payment.requestPayment({
+                    method: selectedPaymentMethod,
+                    amount: {
+                        currency: "KRW",
+                        value: amount,
+                    },
+                    orderId: orderId,
+                    orderName: "포인트 충전",
+                    successUrl: window.location.origin + "/api/v1/payment/success",
+                    failUrl: window.location.origin + "/api/v1/payment/fail",
+                    customerEmail: customerEmail,
+                    customerName: customerName,
+                    customerMobilePhone: customerPhone,
+                    card: {
+                        useEscrow: false,
+                        flowMode: "DEFAULT",
+                        useCardPoint: false,
+                        useAppCardOnly: false,
+                    },
+                });
+                
+            } catch (error) {
+                console.error('결제 요청 실패:', error);
+                alert('결제 요청에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+
+                document.getElementById('loading').classList.remove('show');
+                document.querySelector('.pay-button').disabled = false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('결제 페이지 로드 완료');
+            console.log('TossPayments 로드 상태:', typeof window.TossPayments !== 'undefined');
+        });
+    </script>
+</body>
+</html> 

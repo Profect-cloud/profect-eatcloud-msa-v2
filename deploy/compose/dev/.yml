@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  eureka-server:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,dev
+    env_file:
+      - ../env/dev/eureka-server.env
+
+  api-gateway:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,dev
+    env_file:
+      - ../env/dev/gateway.env
+
+  eatcloud-db:
+    env_file:
+      - ../env/dev/eatcloud-db.env
+
+  auth-service:
+    env_file:
+      - ../env/dev/auth-service.env
+
+  customer-service:
+    env_file:
+      - ../env/dev/customer-service.env
+
+  admin-service:
+    env_file:
+      - ../env/dev/admin-service.env
+
+  manager-service:
+    env_file:
+      - ../env/dev/manager-service.env
+
+  store-service:
+    env_file:
+      - ../env/dev/store-service.env
+      - ../env/dev/store-db.env
+
+  order-service:
+    env_file:
+      - ../env/dev/order-service.env
+      - ../env/dev/order-db.env
+
+  payment-service:
+    env_file:
+      - ../env/dev/payment-service.env
+      - ../env/dev/payment-db.env

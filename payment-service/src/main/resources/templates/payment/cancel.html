@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>결제 취소</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .cancel-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .cancel-info {
+            background: #fff3e0;
+            border: 1px solid #ffcc02;
+            border-left: 4px solid #ff9800;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .cancel-info h3 {
+            font-size: 18px;
+            color: #e65100;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-row {
+            margin-bottom: 12px;
+            padding: 8px 0;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-row .label {
+            font-size: 14px;
+            color: #e65100;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .info-row .value {
+            font-size: 14px;
+            color: #e65100;
+            line-height: 1.5;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ffcc02;
+        }
+        
+        .status-section {
+            background: #e8f5e8;
+            border: 1px solid #c8e6c9;
+            border-left: 4px solid #4caf50;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .status-section h3 {
+            font-size: 18px;
+            color: #2e7d32;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .status-list li {
+            color: #2e7d32;
+            margin-bottom: 8px;
+            padding-left: 24px;
+            position: relative;
+            font-size: 14px;
+        }
+        
+        .status-list li:before {
+            content: "✓";
+            color: #4caf50;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+            font-size: 16px;
+        }
+        
+        .rollback-error {
+            background: #ffebee;
+            border: 1px solid #ffcdd2;
+            border-left: 4px solid #f44336;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .rollback-error h3 {
+            font-size: 18px;
+            color: #c62828;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .rollback-error p {
+            color: #c62828;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #3182f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1b64da;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        .contact-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .contact-info .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .contact-info p {
+            font-size: 14px;
+            color: #1565c0;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .contact-info a {
+            color: #1565c0;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="cancel-icon">🛑</div>
+            <h1>결제가 취소되었습니다</h1>
+            <p>고객님의 요청에 따라 결제가 취소되었습니다</p>
+        </div>
+        
+        <div class="content">
+            <div class="cancel-info">
+                <h3>📋 취소 정보</h3>
+                
+                <div class="info-row">
+                    <div class="label">취소 사유</div>
+                    <div class="value" th:text="${message}">고객 요청에 의한 취소</div>
+                </div>
+                
+                <div class="info-row" th:if="${code}">
+                    <div class="label">취소 코드</div>
+                    <div class="value" th:text="${code}">CANCEL_CODE</div>
+                </div>
+                
+                <div class="info-row" th:if="${orderId}">
+                    <div class="label">주문번호</div>
+                    <div class="value" th:text="${orderId}">ORDER_123456</div>
+                </div>
+                
+                <div class="info-row" th:if="${paymentKey}">
+                    <div class="label">결제키</div>
+                    <div class="value" th:text="${paymentKey}">PAYMENT_KEY</div>
+                </div>
+                
+                <div class="info-row" th:if="${amount}">
+                    <div class="label">취소금액</div>
+                    <div class="value" th:text="${#numbers.formatInteger(amount, 0, 'COMMA')} + '원'">0원</div>
+                </div>
+                
+                <div class="info-row" th:if="${internalOrderId}">
+                    <div class="label">내부 주문번호</div>
+                    <div class="value" th:text="${internalOrderId}">INTERNAL_ORDER_ID</div>
+                </div>
+                
+                <div class="info-row" th:if="${refundedPoints != null and refundedPoints > 0}">
+                    <div class="label">환불된 포인트</div>
+                    <div class="value" th:text="${refundedPoints} + 'P'" style="color: #4caf50; font-weight: bold;">0P</div>
+                </div>
+            </div>
+
+            <div class="status-section" th:if="${rollbackCompleted == true}">
+                <h3>✅ 처리 완료</h3>
+                <ul class="status-list">
+                    <li>결제 요청이 취소되었습니다</li>
+                    <li>주문이 취소되었습니다</li>
+                    <li th:if="${refundedPoints != null and refundedPoints > 0}" th:text="'사용된 포인트 ' + ${refundedPoints} + 'P가 반환되었습니다'">사용된 포인트가 반환되었습니다</li>
+                    <li th:if="${refundedPoints == null or refundedPoints == 0}">사용된 포인트가 없습니다</li>
+                    <li>모든 데이터가 정상적으로 복구되었습니다</li>
+                </ul>
+            </div>
+
+            <div class="rollback-error" th:if="${rollbackCompleted == false}">
+                <h3>⚠️ 처리 중 오류 발생</h3>
+                <p th:text="${rollbackError}">일부 데이터 복구 중 오류가 발생했습니다. 고객센터에 문의해 주세요.</p>
+            </div>
+            
+            <div class="actions">
+                <a href="/api/v1/payment/order" class="btn btn-primary">다시 주문하기</a>
+                <a href="/" class="btn btn-secondary">메인으로 이동</a>
+            </div>
+            
+            <div class="contact-info">
+                <div class="icon">📞</div>
+                <p>
+                    문의사항이 있으시면<br>
+                    고객센터 <a href="tel:1588-1234">1588-1234</a>로 연락해 주세요
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        console.log('=== 결제 취소 페이지 ===');
+        console.log('취소 메시지:', /*[[${message}]]*/ '고객 요청에 의한 취소');
+        console.log('취소 코드:', /*[[${code}]]*/ 'CANCEL_CODE');
+        console.log('주문번호:', /*[[${orderId}]]*/ 'ORDER_123456');
+        console.log('결제키:', /*[[${paymentKey}]]*/ 'PAYMENT_KEY');
+        console.log('취소금액:', /*[[${amount}]]*/ 0);
+        console.log('내부 주문번호:', /*[[${internalOrderId}]]*/ 'INTERNAL_ORDER_ID');
+        console.log('롤백 완료:', /*[[${rollbackCompleted}]]*/ false);
+        
+        // 페이지 로드 완료 시
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('결제 취소 페이지 로드 완료');
+            
+            // TODO: 여기서 추가 작업 가능
+            // - 취소 통계 수집
+            // - 사용자 피드백 수집
+            // - 대안 제안 등
+        });
+    </script>
+</body>
+</html>

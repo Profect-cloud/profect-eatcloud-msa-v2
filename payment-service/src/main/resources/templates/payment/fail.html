@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>결제 실패</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .fail-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-5px);
+            }
+            75% {
+                transform: translateX(5px);
+            }
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .error-info {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-left: 4px solid #dc3545;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .error-info h3 {
+            font-size: 18px;
+            color: #721c24;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .error-row {
+            margin-bottom: 12px;
+            padding: 8px 0;
+        }
+        
+        .error-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .error-row .label {
+            font-size: 14px;
+            color: #721c24;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .error-row .value {
+            font-size: 14px;
+            color: #721c24;
+            line-height: 1.5;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .help-section {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-left: 4px solid #17a2b8;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .help-section h3 {
+            font-size: 18px;
+            color: #0c5460;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .help-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .help-list li {
+            color: #0c5460;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .help-list li:before {
+            content: "•";
+            color: #17a2b8;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #3182f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1b64da;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        .contact-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .contact-info .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .contact-info p {
+            font-size: 14px;
+            color: #856404;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .contact-info a {
+            color: #856404;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="fail-icon">😞</div>
+            <h1>결제에 실패했습니다</h1>
+            <p>결제 처리 중 문제가 발생했습니다</p>
+        </div>
+        
+        <div class="content">
+            <div class="error-info">
+                <h3>⚠️ 오류 정보</h3>
+                
+                <div class="error-row">
+                    <div class="label">오류 메시지</div>
+                    <div class="value" th:text="${message}">알 수 없는 오류가 발생했습니다.</div>
+                </div>
+                
+                <div class="error-row" th:if="${code}">
+                    <div class="label">오류 코드</div>
+                    <div class="value" th:text="${code}">ERROR_CODE</div>
+                </div>
+                
+                <div class="error-row" th:if="${orderId}">
+                    <div class="label">주문번호</div>
+                    <div class="value" th:text="${orderId}">ORDER_123456</div>
+                </div>
+                
+                <div class="error-row" th:if="${error}">
+                    <div class="label">상세 오류</div>
+                    <div class="value" th:text="${error}">상세 오류 메시지</div>
+                </div>
+                
+                <div class="error-row" th:if="${refundedPoints != null and refundedPoints > 0}">
+                    <div class="label">환불된 포인트</div>
+                    <div class="value" th:text="${refundedPoints} + 'P'" style="color: #28a745; font-weight: bold;">0P</div>
+                </div>
+                
+                <div class="error-row" th:if="${rollbackCompleted == true}">
+                    <div class="label">데이터 복구 상태</div>
+                    <div class="value" style="color: #28a745; font-weight: bold;">✓ 주문 및 포인트가 정상적으로 복구되었습니다</div>
+                </div>
+                
+                <div class="error-row" th:if="${rollbackCompleted == false}">
+                    <div class="label">데이터 복구 상태</div>
+                    <div class="value" style="color: #dc3545; font-weight: bold;">⚠️ 일부 데이터 복구에 실패했습니다</div>
+                </div>
+            </div>
+            
+            <div class="help-section">
+                <h3>💡 해결 방법</h3>
+                <ul class="help-list">
+                    <li>카드 정보를 다시 확인해 주세요</li>
+                    <li>카드 한도나 잔액을 확인해 주세요</li>
+                    <li>다른 결제 수단을 이용해 보세요</li>
+                    <li>잠시 후 다시 시도해 주세요</li>
+                    <li>문제가 지속되면 고객센터에 문의해 주세요</li>
+                </ul>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-primary" onclick="history.back()">다시 시도</button>
+                <a href="/" class="btn btn-secondary">메인으로 이동</a>
+            </div>
+            
+            <div class="contact-info">
+                <div class="icon">📞</div>
+                <p>
+                    문의사항이 있으시면<br>
+                    고객센터 <a href="tel:1588-1234">1588-1234</a>로 연락해 주세요
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        console.log('=== 결제 실패 페이지 ===');
+        console.log('오류 메시지:', /*[[${message}]]*/ '알 수 없는 오류');
+        console.log('오류 코드:', /*[[${code}]]*/ 'ERROR_CODE');
+        console.log('주문번호:', /*[[${orderId}]]*/ 'ORDER_123456');
+        console.log('상세 오류:', /*[[${error}]]*/ '상세 오류');
+        
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('결제 실패 페이지 로드 완료');
+        });
+        
+
+        function goBack() {
+
+            if (document.referrer) {
+                history.back();
+            } else {
+                window.location.href = '/payments/charge';
+            }
+        }
+    </script>
+</body>
+</html> 

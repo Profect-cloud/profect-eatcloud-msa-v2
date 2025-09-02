@@ -1,0 +1,1 @@
+-- Auth service schema - using Redis for session management

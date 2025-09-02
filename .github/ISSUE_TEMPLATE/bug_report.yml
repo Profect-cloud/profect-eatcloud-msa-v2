@@ -1,0 +1,40 @@
+name: "🐛 Bug"
+description: "버그 제보"
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: 🐞 버그 설명
+      description: 문제가 발생한 현상을 구체적으로 설명해 주세요.
+      placeholder: "어떤 상황에서, 어떤 문제가 발생했나요?"
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: ⚙️ 재현 방법
+      description: 버그를 재현하는 과정을 순서대로 작성해 주세요.
+      placeholder: |
+        예:
+        1. 로그인 페이지 접속  
+        2. 올바른 아이디/비밀번호 입력  
+        3. 로그인 버튼 클릭  
+        4. 500 에러 발생
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 📷 스크린샷/오류 로그
+      description: 관련된 스크린샷이나 콘솔/서버 로그가 있다면 첨부해 주세요.
+      placeholder: "에러 메시지나 관련 캡처 이미지 등"
+
+  - type: textarea
+    attributes:
+      label: ✅ 기대 결과
+      description: 정상적으로 동작했을 때의 결과를 작성해 주세요.
+      placeholder: "예: 로그인 성공 후 대시보드로 이동"
+
+  - type: textarea
+    attributes:
+      label: 💻 환경 정보

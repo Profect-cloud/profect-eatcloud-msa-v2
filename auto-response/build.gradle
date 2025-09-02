@@ -1,0 +1,42 @@
+plugins {
+    id "java-library"
+}
+
+group = 'com.eatcloud'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api(platform("org.springframework.boot:spring-boot-dependencies:3.5.3"))
+
+    api("org.springframework.data:spring-data-jpa")
+
+    compileOnly("org.springframework.boot:spring-boot-autoconfigure")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.security:spring-security-core")
+
+}
+
+tasks.matching { it.name == "bootJar" }.configureEach { enabled = false }
+tasks.named("jar").configure {
+    enabled = true
+}
+tasks.withType(Javadoc).configureEach {
+    options.addBooleanOption('Xdoclint:none', true)
+    failOnError = false
+}

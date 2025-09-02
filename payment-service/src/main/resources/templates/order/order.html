@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>주문하기 - EatCloud</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #ff6b35;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .store-info {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .store-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .store-desc {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .menu-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .storeCategory-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin: 20px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-image {
+            width: 80px;
+            height: 80px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .menu-info {
+            flex: 1;
+        }
+
+        .menu-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .menu-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .menu-price {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ff6b35;
+        }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            margin-left: 16px;
+        }
+
+        .quantity-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .quantity-btn:hover {
+            background: #f8f9fa;
+        }
+
+        .quantity-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .quantity-display {
+            margin: 0 12px;
+            font-size: 16px;
+            font-weight: 600;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .cart-summary {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 2px solid #f0f0f0;
+            font-weight: 700;
+        }
+
+        .point-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .point-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .current-points {
+            color: #ff6b35;
+            font-weight: 700;
+        }
+
+        .point-use {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .point-checkbox {
+            margin-right: 8px;
+        }
+
+        .point-input-group {
+            display: flex;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .point-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-right: 8px;
+        }
+
+        .point-input:focus {
+            outline: none;
+            border-color: #ff6b35;
+        }
+
+        .point-input:invalid {
+            border-color: #dc3545;
+        }
+
+        .point-error {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .max-btn {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .order-button {
+            width: 100%;
+            background: #ff6b35;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .order-button:hover {
+            background: #e55a2b;
+        }
+
+        .order-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .payment-amount {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ff6b35;
+            margin-bottom: 8px;
+        }
+
+        .point-discount {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🍽️ 주문하기</h1>
+    </div>
+
+    <div class="content">
+        <div class="store-info">
+            <div class="store-name">맛있는 한식당</div>
+            <div class="store-desc">⭐ 4.8 • 배달비 3,000원 • 30-40분</div>
+        </div>
+
+        <div class="menu-section">
+            <div class="section-title">🍜 메뉴 선택</div>
+
+            <div class="storeCategory-title">🍗 메인 메뉴</div>
+
+            <div class="menu-item">
+                <div class="menu-image">🍗</div>
+                <div class="menu-info">
+                    <div class="menu-name">후라이드치킨</div>
+                    <div class="menu-desc">바삭바삭한 후라이드치킨</div>
+                    <div class="menu-price">18,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440001', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440001-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440001', 1)">+
+                    </button>
+                </div>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-image">🍗</div>
+                <div class="menu-info">
+                    <div class="menu-name">양념치킨</div>
+                    <div class="menu-desc">매콤달콤한 양념치킨</div>
+                    <div class="menu-price">19,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440002', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440002-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440002', 1)">+
+                    </button>
+                </div>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-image">🍜</div>
+                <div class="menu-info">
+                    <div class="menu-name">김치찌개</div>
+                    <div class="menu-desc">진짜 맛있는 김치찌개</div>
+                    <div class="menu-price">8,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440004', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440004-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440004', 1)">+
+                    </button>
+                </div>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-image">🍚</div>
+                <div class="menu-info">
+                    <div class="menu-name">제육볶음</div>
+                    <div class="menu-desc">매콤달콤한 제육볶음</div>
+                    <div class="menu-price">12,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440005', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440005-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440005', 1)">+
+                    </button>
+                </div>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-image">🥘</div>
+                <div class="menu-info">
+                    <div class="menu-name">된장찌개</div>
+                    <div class="menu-desc">구수한 된장찌개</div>
+                    <div class="menu-price">7,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440006', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440006-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440006', 1)">+
+                    </button>
+                </div>
+            </div>
+
+            <div class="storeCategory-title">🥤 음료</div>
+
+            <div class="menu-item">
+                <div class="menu-image">🥤</div>
+                <div class="menu-info">
+                    <div class="menu-name">콜라 1.25L</div>
+                    <div class="menu-desc">시원한 콜라</div>
+                    <div class="menu-price">3,000원</div>
+                </div>
+                <div class="quantity-control">
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440003', -1)">
+                        -
+                    </button>
+                    <span class="quantity-display" id="550e8400-e29b-41d4-a716-446655440003-qty">0</span>
+                    <button class="quantity-btn" onclick="updateQuantity('550e8400-e29b-41d4-a716-446655440003', 1)">+
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="cart-summary" id="cart-summary" style="display: none;">
+            <div class="section-title">🛒 주문 내역</div>
+            <div id="cart-items"></div>
+            <div class="cart-item">
+                <span>배달비</span>
+                <span>3,000원</span>
+            </div>
+            <div class="cart-item">
+                <span>총 주문금액</span>
+                <span id="total-amount">0원</span>
+            </div>
+        </div>
+
+        <div class="point-section" id="point-section" style="display: none;">
+            <div class="section-title">💰 포인트 사용</div>
+            <div class="point-info">
+                <span>보유 포인트</span>
+                <span class="current-points"
+                      th:text="${customerPoints} ? ${customerPoints} + '원' : '5,000원'">5,000원</span>
+            </div>
+
+            <div class="point-use">
+                <input type="checkbox" id="usePoints" class="point-checkbox" onchange="togglePointUse()">
+                <label for="usePoints">포인트 사용하기</label>
+            </div>
+
+            <div class="point-input-group" id="point-input-group" style="display: none;">
+                <input type="number" id="pointAmount" class="point-input" placeholder="사용할 포인트" min="0"
+                       th:max="${customerPoints}" oninput="validateAndCalculatePoints()"
+                       onchange="calculatePaymentAmount()">
+                <button class="max-btn" onclick="useMaxPoints()">전액사용</button>
+            </div>
+            <div class="point-error" id="point-error">포인트 입력값이 유효하지 않습니다.</div>
+
+            <div class="point-discount" id="point-discount" style="display: none;">
+                포인트 할인: -<span id="discount-amount">0</span>원
+            </div>
+        </div>
+
+        <div class="payment-amount" id="payment-amount" style="display: none;">
+            결제금액: <span id="final-amount">0</span>원
+        </div>
+
+        <button class="order-button" id="order-button" onclick="proceedToPayment()" disabled>
+            주문하기
+        </button>
+    </div>
+</div>
+
+<script src="https://js.tosspayments.com/v1/payment"></script>
+
+<script th:inline="javascript">
+    const customerPoints = /*[[${customerPoints}]]*/ 5000;
+    const customerId = /*[[${customerId}]]*/ '11111111-1111-1111-1111-111111111111';
+
+    const menuData = {
+        '550e8400-e29b-41d4-a716-446655440001': {
+            name: '후라이드치킨',
+            price: 18000,
+            storeCategory: 'MAIN',
+            description: '바삭바삭한 후라이드치킨'
+        },
+        '550e8400-e29b-41d4-a716-446655440002': {
+            name: '양념치킨',
+            price: 19000,
+            storeCategory: 'MAIN',
+            description: '매콤달콤한 양념치킨'
+        },
+        '550e8400-e29b-41d4-a716-446655440003': {
+            name: '콜라 1.25L',
+            price: 3000,
+            storeCategory: 'DRINK',
+            description: '시원한 콜라'
+        },
+        '550e8400-e29b-41d4-a716-446655440004': {
+            name: '김치찌개',
+            price: 8000,
+            storeCategory: 'MAIN',
+            description: '진짜 맛있는 김치찌개'
+        },
+        '550e8400-e29b-41d4-a716-446655440005': {
+            name: '제육볶음',
+            price: 12000,
+            storeCategory: 'MAIN',
+            description: '매콤달콤한 제육볶음'
+        },
+        '550e8400-e29b-41d4-a716-446655440006': {
+            name: '된장찌개',
+            price: 7000,
+            storeCategory: 'MAIN',
+            description: '구수한 된장찌개'
+        }
+    };
+
+    let cart = {};
+    let deliveryFee = 3000;
+    let totalAmount = 0;
+    let pointsToUse = 0;
+    let finalPaymentAmount = 0;
+
+    function updateQuantity(menuId, change) {
+        if (!cart[menuId]) cart[menuId] = 0;
+        cart[menuId] = Math.max(0, cart[menuId] + change);
+
+        document.getElementById(menuId + '-qty').textContent = cart[menuId];
+        updateCartSummary();
+    }
+
+    function updateCartSummary() {
+        const cartItems = document.getElementById('cart-items');
+        const cartSummary = document.getElementById('cart-summary');
+        const pointSection = document.getElementById('point-section');
+        const orderButton = document.getElementById('order-button');
+
+        cartItems.innerHTML = '';
+        totalAmount = 0;
+
+        let hasItems = false;
+        for (const [menuId, quantity] of Object.entries(cart)) {
+            if (quantity > 0) {
+                hasItems = true;
+                const menu = menuData[menuId];
+                const itemTotal = menu.price * quantity;
+                totalAmount += itemTotal;
+
+                cartItems.innerHTML += `
+                        <div class="cart-item">
+                            <span>${menu.name} x ${quantity}</span>
+                            <span>${itemTotal.toLocaleString()}원</span>
+                        </div>
+                    `;
+            }
+        }
+
+        if (hasItems) {
+            totalAmount += deliveryFee;
+            document.getElementById('total-amount').textContent = totalAmount.toLocaleString() + '원';
+            cartSummary.style.display = 'block';
+            pointSection.style.display = 'block';
+            orderButton.disabled = false;
+            calculatePaymentAmount();
+        } else {
+            cartSummary.style.display = 'none';
+            pointSection.style.display = 'none';
+            orderButton.disabled = true;
+            document.getElementById('payment-amount').style.display = 'none';
+        }
+    }
+
+    function togglePointUse() {
+        const usePoints = document.getElementById('usePoints').checked;
+        const pointInputGroup = document.getElementById('point-input-group');
+        const pointInput = document.getElementById('pointAmount');
+
+        if (usePoints) {
+            pointInputGroup.style.display = 'flex';
+            calculatePaymentAmount();
+        } else {
+            pointInputGroup.style.display = 'none';
+            pointInput.value = '';
+            pointsToUse = 0;
+            calculatePaymentAmount();
+        }
+    }
+
+    function useMaxPoints() {
+        if (totalAmount === 0) {
+            alert('먼저 메뉴를 선택해주세요.');
+            return;
+        }
+
+        const maxPoints = Math.min(customerPoints, totalAmount);
+        const pointInput = document.getElementById('pointAmount');
+        pointInput.value = maxPoints;
+        calculatePaymentAmount();
+    }
+
+    function validateAndCalculatePoints() {
+        const pointInput = document.getElementById('pointAmount');
+        const pointError = document.getElementById('point-error');
+        const inputValue = parseInt(pointInput.value) || 0;
+
+        if (inputValue < 0) {
+            pointInput.value = 0;
+            showPointError('포인트는 0 이상이어야 합니다.');
+            return;
+        }
+
+        if (inputValue > customerPoints) {
+            pointInput.value = customerPoints;
+            showPointError(`보유 포인트(${customerPoints.toLocaleString()}원)를 초과할 수 없습니다.`);
+            setTimeout(() => hidePointError(), 2000);
+        } else if (inputValue > totalAmount) {
+            pointInput.value = totalAmount;
+            showPointError(`주문금액(${totalAmount.toLocaleString()}원)을 초과할 수 없습니다.`);
+            setTimeout(() => hidePointError(), 2000);
+        } else {
+            hidePointError();
+        }
+
+        calculatePaymentAmount();
+    }
+
+    function showPointError(message) {
+        const pointError = document.getElementById('point-error');
+        pointError.textContent = message;
+        pointError.style.display = 'block';
+    }
+
+    function hidePointError() {
+        const pointError = document.getElementById('point-error');
+        pointError.style.display = 'none';
+    }
+
+    function calculatePaymentAmount() {
+        const pointInput = document.getElementById('pointAmount');
+        const usePointsCheckbox = document.getElementById('usePoints');
+
+        if (!usePointsCheckbox.checked || totalAmount === 0) {
+            pointsToUse = 0;
+            finalPaymentAmount = totalAmount;
+        } else {
+            pointsToUse = parseInt(pointInput.value) || 0;
+
+            const maxUsablePoints = Math.min(customerPoints, totalAmount);
+            pointsToUse = Math.min(pointsToUse, maxUsablePoints);
+
+            if (pointsToUse !== parseInt(pointInput.value)) {
+                pointInput.value = pointsToUse;
+            }
+
+            finalPaymentAmount = Math.max(0, totalAmount - pointsToUse);
+        }
+
+        const paymentAmountDiv = document.getElementById('payment-amount');
+        const pointDiscountDiv = document.getElementById('point-discount');
+
+        if (pointsToUse > 0) {
+            document.getElementById('discount-amount').textContent = pointsToUse.toLocaleString();
+            pointDiscountDiv.style.display = 'block';
+        } else {
+            pointDiscountDiv.style.display = 'none';
+        }
+
+        if (totalAmount > 0) {
+            document.getElementById('final-amount').textContent = finalPaymentAmount.toLocaleString();
+            paymentAmountDiv.style.display = 'block';
+        }
+
+        console.log('포인트 계산:', {
+            totalAmount,
+            pointsToUse,
+            finalPaymentAmount,
+            customerPoints
+        });
+    }
+
+    function proceedToPayment() {
+        if (totalAmount === 0) {
+            alert('주문할 메뉴를 선택해주세요.');
+            return;
+        }
+
+        const orderData = {
+            customerId: customerId,
+            orderMenuList: [],
+            totalPrice: totalAmount,
+            usePoints: document.getElementById('usePoints').checked,
+            pointsToUse: pointsToUse,
+            finalPaymentAmount: finalPaymentAmount,
+            orderType: '배달'
+        };
+
+        for (const [menuId, quantity] of Object.entries(cart)) {
+            if (quantity > 0) {
+                orderData.orderMenuList.push({
+                    menuId: menuId,
+                    menuName: menuData[menuId].name,
+                    price: menuData[menuId].price,
+                    quantity: quantity
+                });
+            }
+        }
+
+        console.log('주문 데이터:', orderData);
+
+        fetch('/api/v1/payment/checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'orderData=' + encodeURIComponent(JSON.stringify(orderData))
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('결제 처리 중 오류가 발생했습니다: ' + data.error);
+                    return;
+                }
+
+                if (data.warning) {
+                    console.warn(data.warning);
+                }
+
+                console.log('결제 정보:', data);
+
+                if (data.amount === 0) {
+                    alert('포인트로 결제가 완료되었습니다!');
+                    return;
+                }
+
+                requestTossPayment(data);
+            })
+            .catch(error => {
+                console.error('결제 요청 오류:', error);
+                alert('결제 요청 중 오류가 발생했습니다.');
+            });
+    }
+
+    function requestTossPayment(paymentData) {
+        const clientKey = paymentData.clientKey;
+        const tossPayment = new TossPayments(clientKey);
+
+        tossPayment.requestPayment('카드', {
+            amount: paymentData.amount,
+            orderId: paymentData.orderId,
+            orderName: '맛있는 한식당 주문',
+            customerName: paymentData.customerName,
+            customerEmail: 'test@example.com',
+            successUrl: window.location.origin + '/api/v1/payment/success',
+            failUrl: window.location.origin + '/api/v1/payment/fail',
+            cancelUrl: window.location.origin + '/api/v1/payment/cancel',
+        }).catch(function (error) {
+            if (error.code === 'USER_CANCEL') {
+                window.location.href = '/api/v1/payment/cancel?orderId=' + paymentData.orderId + '&message=' + encodeURIComponent('고객이 결제를 취소하였습니다');
+            } else {
+                alert('결제 중 오류가 발생했습니다: ' + error.message);
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('주문 페이지 로드 완료');
+        console.log('고객 포인트:', customerPoints);
+        console.log('메뉴 데이터:', menuData);
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# Production Environment Override
+# Updated for New Service Structure: auth, customer, admin, manager, store, order, payment
+version: "3.8"
+
+services:
+  # Production specific configurations
+  eureka-server:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,prod
+    env_file:
+      - ../env/prod/eureka-server.env
+
+  api-gateway:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,prod
+    env_file:
+      - ../env/prod/gateway.env
+
+  # In production, remove the local database service and use AWS RDS
+  eatcloud-db:
+    # This service should not be deployed in production
+    # Instead, use external AWS RDS instance
+    deploy:
+      replicas: 0
+
+  # Uncomment and configure services for production
+#  auth-service:
+#    env_file:
+#      - ../env/prod/auth-service.env
+
+#  customer-service:
+#    env_file:
+#      - ../env/prod/customer-service.env
+
+#  admin-service:
+#    env_file:
+#      - ../env/prod/admin-service.env
+
+#  manager-service:
+#    env_file:
+#      - ../env/prod/manager-service.env
+
+#  store-service:
+#    env_file:
+#      - ../env/prod/store-service.env
+
+  order-service:
+    env_file:
+      - ../env/prod/order-service.env
+
+#  payment-service:
+#    env_file:
+#      - ../env/prod/payment-service.env

@@ -1,0 +1,450 @@
+name: ECR + ECS CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECS_CLUSTER_STAGING: eatcloud-cluster
+  ECS_CLUSTER_PRODUCTION: eatcloud-cluster
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+      matrix: ${{ steps.changes.outputs.matrix }}
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$changed_files"
+          
+          services=()
+          
+          for service in auth-service customer-service admin-service manager-service store-service order-service payment-service; do
+            if echo "$changed_files" | grep -q "^$service/"; then
+              services+=("$service")
+            fi
+          done
+          
+          if echo "$changed_files" | grep -qE "^(build\.gradle|settings\.gradle|docker-compose\.yml|gradle/|\.github/workflows/)"; then
+            services=(auth-service customer-service admin-service manager-service store-service order-service payment-service)
+          fi
+          
+          if [ ${#services[@]} -eq 0 ]; then
+            services=(auth-service customer-service admin-service manager-service store-service order-service payment-service)
+          fi
+          
+          services_json=$(printf '%s\n' "${services[@]}" | jq -R -s -c 'split("\n")[:-1]')
+          echo "services=$services_json" >> $GITHUB_OUTPUT
+          
+          matrix_json=$(printf '%s\n' "${services[@]}" | jq -R -s -c '{"service": split("\n")[:-1]}')
+          echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
+          
+          if [ ${#services[@]} -gt 0 ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Detected services: $services_json"
+
+  test-and-build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.detect-changes.outputs.matrix)}}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Test ${{ matrix.service }}
+        run: ./gradlew :${{ matrix.service }}:test
+        continue-on-error: true
+
+      - name: Build ${{ matrix.service }}
+        run: ./gradlew :${{ matrix.service }}:bootJar
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.service }}-${{ github.sha }}
+          path: ${{ matrix.service }}/build/reports/tests/
+          retention-days: 7
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-${{ matrix.service }}-${{ github.sha }}
+          path: ${{ matrix.service }}/build/libs/*.jar
+          retention-days: 30
+
+  build-and-push-ecr:
+    needs: [detect-changes, test-and-build]
+    if: needs.detect-changes.outputs.has_changes == 'true' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.detect-changes.outputs.matrix)}}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-${{ matrix.service }}-${{ github.sha }}
+          path: ${{ matrix.service }}/build/libs/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names eatcloud/${{ matrix.service }} || \
+          aws ecr create-repository \
+            --repository-name eatcloud/${{ matrix.service }} \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate short SHA
+        id: short-sha
+        run: echo "sha_short=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/eatcloud/${{ matrix.service }}:latest
+            ${{ env.ECR_REGISTRY }}/eatcloud/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/eatcloud/${{ matrix.service }}:${{ steps.short-sha.outputs.sha_short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/arm64
+
+      - name: Scan image for vulnerabilities
+        run: |
+          aws ecr start-image-scan --repository-name eatcloud/${{ matrix.service }} --image-id imageTag=latest || true
+
+  deploy-staging-ecs-bluegreen:
+    needs: [detect-changes, build-and-push-ecr]
+    if: needs.detect-changes.outputs.has_changes == 'true' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    strategy:
+      matrix: ${{fromJson(needs.detect-changes.outputs.matrix)}}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Smart Task Definition Update
+        id: task-def
+        run: |
+          TASK_DEF_FAMILY="eatcloud-${{ matrix.service }}"
+          NEW_IMAGE="${{ env.ECR_REGISTRY }}/eatcloud/${{ matrix.service }}:${{ github.sha }}"
+          
+          echo "🔍 Smart deployment for: $TASK_DEF_FAMILY"
+          echo "🔖 New Image: $NEW_IMAGE"
+          
+          CURRENT_TASK_DEF=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+            --services ${{ matrix.service }} \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          
+          echo "📋 Current Task Definition: $CURRENT_TASK_DEF"
+          
+          CURRENT_IMAGE=$(aws ecs describe-task-definition \
+            --task-definition "$CURRENT_TASK_DEF" \
+            --query 'taskDefinition.containerDefinitions[0].image' \
+            --output text)
+          
+          echo "🔍 Current Image: $CURRENT_IMAGE"
+          
+          if [ "$CURRENT_IMAGE" != "$NEW_IMAGE" ]; then
+            echo "🔄 Image changed, creating new task definition revision..."
+          
+            TASK_DEF_JSON=$(aws ecs describe-task-definition \
+              --task-definition "$CURRENT_TASK_DEF" \
+              --query 'taskDefinition' --output json)
+          
+            echo "$TASK_DEF_JSON" | jq --arg IMAGE "$NEW_IMAGE" \
+              '.containerDefinitions[0].image = $IMAGE | 
+               del(.taskDefinitionArn, .revision, .status, .requiresAttributes, 
+                   .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' > new-task-def.json
+          
+            NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+              --cli-input-json file://new-task-def.json \
+              --query 'taskDefinition.taskDefinitionArn' --output text)
+          
+            echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
+            echo "DEPLOYMENT_TYPE=NEW_REVISION" >> $GITHUB_OUTPUT
+            echo "✅ New Task Definition: $NEW_TASK_DEF_ARN"
+          else
+            echo "ℹ️ Image unchanged, will force deployment with existing Task Definition"
+            echo "NEW_TASK_DEF_ARN=$CURRENT_TASK_DEF" >> $GITHUB_OUTPUT
+            echo "DEPLOYMENT_TYPE=FORCE_DEPLOYMENT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Start Smart ECS Blue/Green Deployment
+        run: |
+          echo "🚀 Starting smart ECS Blue/Green deployment..."
+          echo "📊 Deployment Type: ${{ steps.task-def.outputs.DEPLOYMENT_TYPE }}"
+          
+          echo "📊 Pre-deployment status:"
+          aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+            --services ${{ matrix.service }} \
+            --query 'services[0].{Status:status,RunningCount:runningCount,TaskDefinition:taskDefinition,DeploymentController:deploymentController}' \
+            --output table
+          
+          if [ "${{ steps.task-def.outputs.DEPLOYMENT_TYPE }}" = "NEW_REVISION" ]; then
+            echo "🔄 Deploying with new Task Definition revision..."
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+              --service ${{ matrix.service }} \
+              --task-definition ${{ steps.task-def.outputs.NEW_TASK_DEF_ARN }}
+          else
+            echo "🔄 Force deploying with existing Task Definition..."
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+              --service ${{ matrix.service }} \
+              --force-new-deployment
+          fi
+          
+          echo "✅ ECS Blue/Green deployment initiated"
+
+      - name: Monitor Deployment Progress
+        run: |
+          echo "📊 Monitoring ECS Blue/Green deployment progress..."
+          
+          for i in {1..40}; do
+            echo "🔍 Deployment check $i/40 ($(date))"
+          
+            SERVICE_STATUS=$(aws ecs describe-services \
+              --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+              --services ${{ matrix.service }} \
+              --query 'services[0]' \
+              --output json)
+          
+            RUNNING_COUNT=$(echo "$SERVICE_STATUS" | jq -r '.runningCount')
+            PENDING_COUNT=$(echo "$SERVICE_STATUS" | jq -r '.pendingCount')
+            DESIRED_COUNT=$(echo "$SERVICE_STATUS" | jq -r '.desiredCount')
+          
+            DEPLOYMENTS=$(echo "$SERVICE_STATUS" | jq -r '.deployments[] | "Status: \(.status), Tasks: \(.runningCount)/\(.desiredCount), TD: \(.taskDefinition | split("/") | .[-1])"')
+          
+            echo "📊 Service Status: Running=$RUNNING_COUNT, Pending=$PENDING_COUNT, Desired=$DESIRED_COUNT"
+            echo "🚀 Deployments:"
+            echo "$DEPLOYMENTS" | sed 's/^/  - /'
+          
+            STABLE_DEPLOYMENTS=$(echo "$SERVICE_STATUS" | jq -r '.deployments | map(select(.status == "PRIMARY")) | length')
+            if [ "$STABLE_DEPLOYMENTS" = "1" ] && [ "$RUNNING_COUNT" = "$DESIRED_COUNT" ] && [ "$PENDING_COUNT" = "0" ]; then
+              echo "✅ Deployment reached stable state!"
+              break
+            fi
+          
+            if [ $i -eq 40 ]; then
+              echo "⏰ Deployment monitoring timeout (20 minutes)"
+              echo "🔍 Final service state:"
+              echo "$SERVICE_STATUS" | jq '.deployments[].{status,taskDefinition,runningCount,desiredCount}'
+              break
+            fi
+          
+            sleep 30
+          done
+
+      - name: Wait for Final Stabilization
+        run: |
+          echo "⏳ Waiting for ECS service to fully stabilize..."
+          
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+            --services ${{ matrix.service }} \
+            --cli-read-timeout 300
+          
+          WAIT_RESULT=$?
+          if [ $WAIT_RESULT -eq 0 ]; then
+            echo "✅ Service stabilization completed!"
+          else
+            echo "⚠️ Service stabilization timeout (continuing with verification)"
+          
+            FINAL_STATUS=$(aws ecs describe-services \
+              --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+              --services ${{ matrix.service }} \
+              --query 'services[0].{Status:status,RunningCount:runningCount,DesiredCount:desiredCount}' \
+              --output json)
+          
+            STATUS=$(echo "$FINAL_STATUS" | jq -r '.Status')
+            RUNNING=$(echo "$FINAL_STATUS" | jq -r '.RunningCount')
+            DESIRED=$(echo "$FINAL_STATUS" | jq -r '.DesiredCount')
+          
+            if [ "$STATUS" = "ACTIVE" ] && [ "$RUNNING" = "$DESIRED" ] && [ "$RUNNING" -gt 0 ]; then
+              echo "✅ Service is stable despite waiter timeout"
+            else
+              echo "❌ Service is not stable: Status=$STATUS, Running=$RUNNING, Desired=$DESIRED"
+              exit 1
+            fi
+          fi
+
+      - name: Verify Deployment Results
+        run: |
+          echo "🔍 Verifying deployment results..."
+          
+          SERVICE_STATUS=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+            --services ${{ matrix.service }} \
+            --query 'services[0]' --output json)
+          
+          RUNNING_COUNT=$(echo "$SERVICE_STATUS" | jq -r '.runningCount')
+          DESIRED_COUNT=$(echo "$SERVICE_STATUS" | jq -r '.desiredCount')
+          TASK_DEFINITION=$(echo "$SERVICE_STATUS" | jq -r '.taskDefinition')
+          DEPLOYMENT_CONTROLLER=$(echo "$SERVICE_STATUS" | jq -r '.deploymentController.type')
+          
+          echo "📊 Final Deployment Results:"
+          echo "  - Service: ${{ matrix.service }}"
+          echo "  - Running Tasks: $RUNNING_COUNT/$DESIRED_COUNT"
+          echo "  - Task Definition: $TASK_DEFINITION"
+          echo "  - New Image: ${{ env.ECR_REGISTRY }}/eatcloud/${{ matrix.service }}:${{ github.sha }}"
+          echo "  - Deployment Controller: $DEPLOYMENT_CONTROLLER"
+          echo "  - Deployment Method: ECS Native Blue/Green"
+          
+          echo "🏥 Checking Target Group health status..."
+          
+          TARGET_GROUPS=$(aws elbv2 describe-target-groups \
+            --query "TargetGroups[?contains(TargetGroupName, '${{ matrix.service }}')].{Name:TargetGroupName,Arn:TargetGroupArn}" \
+            --output json)
+          
+          echo "🎯 Found Target Groups:"
+          echo "$TARGET_GROUPS" | jq -r '.[] | "  - \(.Name): \(.Arn)"'
+          
+          TOTAL_HEALTHY=0
+          for tg_arn in $(echo "$TARGET_GROUPS" | jq -r '.[].Arn'); do
+            TG_NAME=$(echo "$TARGET_GROUPS" | jq -r ".[] | select(.Arn==\"$tg_arn\") | .Name")
+          
+            HEALTHY_COUNT=$(aws elbv2 describe-target-health \
+              --target-group-arn "$tg_arn" \
+              --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
+              --output text)
+          
+            TOTAL_COUNT=$(aws elbv2 describe-target-health \
+              --target-group-arn "$tg_arn" \
+              --query 'length(TargetHealthDescriptions)' \
+              --output text)
+          
+            echo "  🎯 $TG_NAME: $HEALTHY_COUNT/$TOTAL_COUNT healthy targets"
+            TOTAL_HEALTHY=$((TOTAL_HEALTHY + HEALTHY_COUNT))
+          done
+          
+          if [ "$RUNNING_COUNT" = "$DESIRED_COUNT" ] && [ "$RUNNING_COUNT" -gt 0 ] && [ "$TOTAL_HEALTHY" -gt 0 ]; then
+            echo "🎉 ECS Blue/Green deployment completed successfully!"
+            echo "✨ Zero-downtime deployment achieved with ECS native Blue/Green!"
+          else
+            echo "❌ Deployment verification failed"
+            echo "📋 Service Details:"
+            echo "$SERVICE_STATUS" | jq '.deployments[] | {status, taskDefinition, runningCount, desiredCount}'
+            echo "📊 Health Summary: $TOTAL_HEALTHY healthy targets across all Target Groups"
+            exit 1
+          fi
+
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          echo "🚨 Deployment failed, checking rollback options..."
+          
+          echo "📊 Current Service Status:"
+          aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER_STAGING }} \
+            --services ${{ matrix.service }} \
+            --query 'services[0].{Status:status,RunningCount:runningCount,DesiredCount:desiredCount,Deployments:deployments[].{Status:status,TaskDefinition:taskDefinition}}' \
+            --output json | jq .
+          
+          echo "ℹ️ ECS manages automatic rollback for failed deployments"
+          echo "ℹ️ Check ECS console for detailed rollback status"
+
+  production-deploy-ready:
+    needs: [detect-changes, build-and-push-ecr]
+    if: needs.detect-changes.outputs.has_changes == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Production Blue/Green deployment notification
+        run: |
+          echo "🚀 Production Blue/Green deployment ready!"
+          echo "Services: ${{ needs.detect-changes.outputs.services }}"
+          echo "Image SHA: ${{ github.sha }}"
+          echo "ECR Images:"
+          echo "${{ needs.detect-changes.outputs.services }}" | jq -r '.[]' | while read service; do
+            echo "  - ${{ env.ECR_REGISTRY }}/eatcloud/${service}:${{ github.sha }}"
+          done
+          echo ""
+          echo "Blue/Green deployment features:"
+          echo "  ✅ Zero-downtime deployment"
+          echo "  ✅ Automatic health checks"
+          echo "  ✅ ECS native Blue/Green deployment"
+          echo "  ✅ Automatic rollback on failure"
+          echo ""
+          echo "To deploy to production:"
+          echo "1. Go to Actions tab"
+          echo "2. Run 'Deploy to Production (Blue/Green)' workflow"
+          echo "3. Select services and image tag: ${{ github.sha }}"

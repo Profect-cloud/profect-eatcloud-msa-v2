@@ -1,0 +1,14 @@
+rootProject.name = 'profect-eatcloud-msa-v2'
+
+include 'eureka-server'
+include 'api-gateway'
+include 'auth-service'
+include 'customer-service'
+include 'admin-service'
+include 'manager-service'
+include 'store-service'
+include 'order-service'
+include 'payment-service'
+
+include 'auto-time'
+include 'auto-response'
