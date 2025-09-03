@@ -30,6 +30,9 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
+		if (path.contains("/token/exchange")) {
+			return false;
+		}
 		if (path.contains("/api/v1/auth/")) {
 			return true;
 		}
