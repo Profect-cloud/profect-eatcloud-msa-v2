@@ -30,10 +30,19 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		if (path.startsWith("/api/v1/auth/")) {
+		// if (path.contains("/token/exchange")) {
+		// 	return false;
+		// }
+		if (path.contains("/api/v1/auth/")) {
 			return true;
 		}
 		if (path.startsWith("/oauth2/") || path.startsWith("/auth/success")) {
+			return true;
+		}
+		if (path.contains("/swagger") || path.contains("/v3/api-docs") || path.contains("/webjars")) {
+			return true;
+		}
+		if (path.contains("/actuator")) {
 			return true;
 		}
 		return false;
@@ -83,4 +92,3 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 	}
 
 }
-
