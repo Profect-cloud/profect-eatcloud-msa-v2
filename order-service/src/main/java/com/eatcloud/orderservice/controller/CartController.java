@@ -28,7 +28,7 @@ import com.eatcloud.orderservice.service.CartService;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/orders/cart")
+@RequestMapping("/api/v1/orders/cart")
 @Slf4j
 public class CartController {
 

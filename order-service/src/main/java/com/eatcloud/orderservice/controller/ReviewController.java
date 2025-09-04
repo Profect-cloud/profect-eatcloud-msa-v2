@@ -25,7 +25,7 @@ import com.eatcloud.orderservice.dto.response.ReviewResponseDto;
 import com.eatcloud.orderservice.service.ReviewService;
 
 @RestController
-@RequestMapping("/reviews")
+@RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
 public class ReviewController {
 

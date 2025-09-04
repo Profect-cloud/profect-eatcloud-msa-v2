@@ -48,6 +48,11 @@ public class OrderEventConsumer {
 
             log.info("포인트 차감 예약 완료: orderId={}, customerId={}, points={}, reservationId={}",
                     event.getOrderId(), event.getCustomerId(), event.getPointsToUse(), reservation.getReservationId());
+            
+            // 주문 생성과 동시에 포인트 예약을 처리 (실제 차감)
+            pointReservationService.processReservation(event.getOrderId());
+            log.info("포인트 예약 처리 완료: orderId={}, customerId={}", 
+                    event.getOrderId(), event.getCustomerId());
 
         } catch (JsonProcessingException e) {
             log.error("주문 생성 이벤트 JSON 파싱 실패: eventJson={}", eventJson, e);

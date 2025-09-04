@@ -1,7 +1,6 @@
 package com.eatcloud.orderservice.config;
 
 import com.eatcloud.orderservice.event.OrderCreatedEvent;
-import com.eatcloud.orderservice.event.PaymentCreatedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -24,7 +23,7 @@ public class KafkaConfig {
     private String bootstrapServers;
 
     @Bean
-    public ProducerFactory<String, OrderCreatedEvent> producerFactory() {
+    public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -39,31 +38,8 @@ public class KafkaConfig {
     }
     
     @Bean
-    public KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate() {
+    public KafkaTemplate<String, Object> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
     }
 
-    @Bean
-    public ConsumerFactory<String, PaymentCreatedEvent> consumerFactory() {
-        Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "order-service");
-        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-
-        JsonDeserializer<PaymentCreatedEvent> valueDeserializer = new JsonDeserializer<>(PaymentCreatedEvent.class);
-        valueDeserializer.addTrustedPackages("*");
-        valueDeserializer.setUseTypeHeaders(false);
-
-        return new DefaultKafkaConsumerFactory<>(configProps, new StringDeserializer(), valueDeserializer);
-    }
-    
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, PaymentCreatedEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, PaymentCreatedEvent> factory = 
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
-        return factory;
-    }
 } 

@@ -19,7 +19,7 @@ import com.eatcloud.orderservice.dto.response.AdminOrderResponseDto;
 import com.eatcloud.orderservice.service.AdminOrderService;
 
 @RestController
-@RequestMapping("/orders/admin")
+@RequestMapping("/api/v1/orders/admin")
 @RequiredArgsConstructor
 @Slf4j
 public class ManagerOrderController {
