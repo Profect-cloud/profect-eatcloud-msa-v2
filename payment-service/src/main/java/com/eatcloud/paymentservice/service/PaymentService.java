@@ -249,4 +249,37 @@ public class PaymentService {
         log.info("결제 상태 REFUNDED로 업데이트 완료: paymentId={}, orderId={}", 
                 payment.getPaymentId(), orderId);
     }
+
+    @Transactional
+    public void cancelPaymentByOrder(UUID orderId, String cancelReason) {
+        log.info("주문 취소로 인한 결제 처리: orderId={}, reason={}", orderId, cancelReason);
+
+        // 1. PaymentRequest 취소 처리
+        paymentRequestRepository.findByOrderId(orderId)
+                .ifPresent(paymentRequest -> {
+                    if (paymentRequest.getStatus() == PaymentRequestStatus.PENDING) {
+                        paymentRequest.updateStatus(PaymentRequestStatus.CANCELLED);
+                        paymentRequestRepository.save(paymentRequest);
+                        log.info("결제 요청 취소 완료: orderId={}, paymentRequestId={}", 
+                                orderId, paymentRequest.getPaymentRequestId());
+                    }
+                });
+
+        // 2. 완료된 Payment가 있다면 환불 처리
+        paymentRepository.findByOrderId(orderId)
+                .ifPresent(payment -> {
+                    if (payment.getPaymentStatus() == PaymentStatus.COMPLETED) {
+                        payment.setPaymentStatus(PaymentStatus.CANCELLED);
+                        payment.setCancelledAt(LocalDateTime.now());
+                        paymentRepository.save(payment);
+                        
+                        log.info("결제 취소 완료: orderId={}, paymentId={}", orderId, payment.getPaymentId());
+                        
+                        // TODO: 실제 PG사 환불 API 호출 (Toss 등)
+                        // tossPaymentService.cancelPayment(payment.getPgTransactionId(), cancelReason);
+                    }
+                });
+
+        log.info("주문 취소로 인한 결제 처리 완료: orderId={}", orderId);
+    }
 } 

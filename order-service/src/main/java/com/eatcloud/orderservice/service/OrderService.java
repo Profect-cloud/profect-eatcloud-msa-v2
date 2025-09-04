@@ -279,6 +279,10 @@ public class OrderService {
     }
 
     public void cancelOrder(UUID orderId) {
+        cancelOrder(orderId, "고객 요청에 의한 취소");
+    }
+
+    public void cancelOrder(UUID orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
 
@@ -287,6 +291,25 @@ public class OrderService {
         order.setOrderStatusCode(canceledStatus);
 
         orderRepository.save(order);
+
+        // 주문 취소 이벤트 발행
+        try {
+            com.eatcloud.orderservice.event.OrderCancelledEvent event =
+                    com.eatcloud.orderservice.event.OrderCancelledEvent.builder()
+                            .orderId(order.getOrderId())
+                            .customerId(order.getCustomerId())
+                            .storeId(order.getStoreId())
+                            .cancelReason(cancelReason)
+                            .cancelledAt(java.time.LocalDateTime.now())
+                            .createdAt(java.time.LocalDateTime.now())
+                            .build();
+            orderEventProducer.publishOrderCancelled(event);
+            log.info("주문 취소 이벤트 발행 완료: orderId={}, customerId={}", orderId, order.getCustomerId());
+        } catch (Exception publishEx) {
+            log.error("주문 취소 이벤트 발행 실패: orderId={}", orderId, publishEx);
+        }
+
+        log.info("주문 취소 처리 완료: orderId={}, reason={}", orderId, cancelReason);
     }
 
     @Transactional(readOnly = true)

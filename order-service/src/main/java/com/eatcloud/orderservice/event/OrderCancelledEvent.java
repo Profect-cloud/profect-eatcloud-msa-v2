@@ -9,14 +9,12 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PaymentCreatedEvent {
+public class OrderCancelledEvent {
     
-    private UUID paymentId;
     private UUID orderId;
     private UUID customerId;
-    private Integer totalAmount;
-    private String paymentStatus;
-    private String paymentMethod;
-    private LocalDateTime approvedAt;
+    private UUID storeId;
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
     private LocalDateTime createdAt;
-} 
+}
