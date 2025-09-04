@@ -143,3 +143,20 @@ CREATE TABLE IF NOT EXISTS p_ai_responses (
   deleted_at     TIMESTAMP,
   deleted_by     VARCHAR(100)
 );
+
+CREATE TABLE IF NOT EXISTS p_stock_logs (
+    log_id           UUID PRIMARY KEY,
+    menu_id          UUID NOT NULL,
+    order_id         UUID,
+    order_line_id    UUID,
+    action           VARCHAR(16) NOT NULL,   -- RESERVE, CONFIRM, CANCEL
+    change_amount    INT NOT NULL,           -- -N, 0, +N
+    reason           VARCHAR(100),
+    created_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_logs_line_action
+    ON p_stock_logs(order_line_id, action);
+
+CREATE INDEX IF NOT EXISTS idx_stock_logs_menu
+    ON p_stock_logs(menu_id);
