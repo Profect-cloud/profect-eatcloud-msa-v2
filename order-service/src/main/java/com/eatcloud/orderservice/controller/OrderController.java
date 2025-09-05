@@ -28,7 +28,10 @@ import com.eatcloud.orderservice.dto.request.PaymentFailedRequest;
 import com.eatcloud.orderservice.dto.response.CreateOrderResponse;
 import com.eatcloud.orderservice.dto.response.ApiResponse;
 import com.eatcloud.orderservice.entity.Order;
+import com.eatcloud.orderservice.exception.OrderException;
 import com.eatcloud.orderservice.service.OrderService;
+import com.eatcloud.orderservice.service.SagaOrchestrator;
+
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -39,6 +42,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class OrderController {
 
 	private final OrderService orderService;
+	private final SagaOrchestrator sagaOrchestrator;
 
 	@PostMapping
 	public ResponseEntity<ApiResponse<CreateOrderResponse>> createOrder(
@@ -184,7 +188,11 @@ public class OrderController {
 
 			log.info("결제 완료 콜백 수신: orderId={}, paymentId={}", orderId, request.getPaymentId());
 
+			// 1. 주문 상태 업데이트
 			orderService.completePayment(orderId, request.getPaymentId());
+			
+			// 2. 오케스트레이터를 통한 후속 처리 (포인트 실제 차감)
+			sagaOrchestrator.processPaymentCompletion(orderId, request.getPaymentId());
 
 			response.put("message", "주문 결제 완료 처리되었습니다");
 			response.put("orderId", orderId);
@@ -258,6 +266,45 @@ public class OrderController {
 			log.error("결제 취소 처리 중 오류: orderId={}", orderId, e);
 			response.put("error", "결제 취소 처리 중 오류가 발생했습니다: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(response);
+		}
+	}
+
+	@PostMapping("/saga")
+	public ResponseEntity<ApiResponse<CreateOrderResponse>> createOrderWithSaga(
+			@AuthenticationPrincipal Jwt jwt,
+			@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+			@RequestBody @Valid CreateOrderRequest request) {
+
+		try {
+			UUID customerId = UUID.fromString(jwt.getSubject());
+			log.info("Creating order with Saga: customerId={}, storeId={}", customerId, request.getStoreId());
+
+			CreateOrderResponse response = sagaOrchestrator.createOrderSaga(customerId, request);
+
+			return ResponseEntity.ok(
+					ApiResponse.<CreateOrderResponse>builder()
+							.success(true)
+							.message("주문이 성공적으로 생성되었습니다 (Saga)")
+							.data(response)
+							.build()
+			);
+
+		} catch (OrderException e) {
+			log.error("Saga order creation failed", e);
+			return ResponseEntity.badRequest().body(
+					ApiResponse.<CreateOrderResponse>builder()
+							.success(false)
+							.message(e.getMessage())
+							.build()
+			);
+		} catch (Exception e) {
+			log.error("Unexpected error during saga order creation", e);
+			return ResponseEntity.internalServerError().body(
+					ApiResponse.<CreateOrderResponse>builder()
+							.success(false)
+							.message("주문 처리 중 예상치 못한 오류가 발생했습니다.")
+							.build()
+			);
 		}
 	}
 }

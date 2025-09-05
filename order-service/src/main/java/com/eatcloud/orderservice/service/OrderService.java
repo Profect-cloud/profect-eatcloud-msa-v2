@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.eatcloud.orderservice.entity.Order;
+import com.eatcloud.orderservice.repository.OrderItemRepository;
 import com.eatcloud.orderservice.repository.OrderRepository;
 import com.eatcloud.orderservice.dto.OrderMenu;
 import com.eatcloud.orderservice.entity.OrderStatusCode;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final OrderStatusCodeRepository orderStatusCodeRepository;
     private final OrderTypeCodeRepository orderTypeCodeRepository;
     private final ExternalApiService externalApiService;
@@ -310,6 +312,78 @@ public class OrderService {
         }
 
         log.info("주문 취소 처리 완료: orderId={}, reason={}", orderId, cancelReason);
+    }
+
+    /**
+     * 주문 조회 (ID로)
+     */
+    @Transactional(readOnly = true)
+    public Order getOrderById(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
+    }
+
+    /**
+     * PENDING 상태의 주문 생성 (Saga용)
+     */
+    @Transactional
+    public Order createPendingOrder(UUID customerId, UUID storeId, List<OrderMenu> orderMenuList, 
+                                   String orderType, Boolean usePoints, Integer pointsToUse) {
+        
+        log.info("Creating pending order: customerId={}, storeId={}, orderType={}", 
+                customerId, storeId, orderType);
+
+        // 주문 총액 계산
+        Integer totalAmount = calculateTotalAmount(orderMenuList);
+        Integer finalAmount = totalAmount;
+        Integer actualPointsToUse = 0;
+
+        // 포인트 사용 계산
+        if (Boolean.TRUE.equals(usePoints) && pointsToUse != null && pointsToUse > 0) {
+            actualPointsToUse = Math.min(pointsToUse, totalAmount);
+            finalAmount = totalAmount - actualPointsToUse;
+        }
+
+        // OrderType과 OrderStatus 조회
+        OrderTypeCode orderTypeCode = orderTypeCodeRepository.findByCode(orderType)
+                .orElseThrow(() -> new RuntimeException("주문 타입을 찾을 수 없습니다: " + orderType));
+        
+        OrderStatusCode pendingStatus = orderStatusCodeRepository.findByCode("PENDING")
+                .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: PENDING"));
+
+        // 주문 생성
+        Order order = Order.builder()
+                .customerId(customerId)
+                .storeId(storeId)
+                .orderNumber(generateOrderNumber())
+                .totalPrice(totalAmount)
+                .finalPaymentAmount(finalAmount)
+                .pointsToUse(actualPointsToUse)
+                .orderTypeCode(orderTypeCode)
+                .orderStatusCode(pendingStatus)
+                .build();
+
+        Order savedOrder = orderRepository.save(order);
+
+        // 주문 아이템 저장
+        for (OrderMenu menu : orderMenuList) {
+            com.eatcloud.orderservice.entity.OrderItem orderItem = 
+                    com.eatcloud.orderservice.entity.OrderItem.builder()
+                    .order(savedOrder)
+                    .menuId(menu.getMenuId())
+                    .menuName(menu.getMenuName())
+                    .quantity(menu.getQuantity())
+                    .unitPrice(menu.getPrice())
+                    .totalPrice(menu.getPrice() * menu.getQuantity())
+                    .build();
+            
+            orderItemRepository.save(orderItem);
+        }
+
+        log.info("Pending order created: orderId={}, orderNumber={}, totalAmount={}, finalAmount={}", 
+                savedOrder.getOrderId(), savedOrder.getOrderNumber(), totalAmount, finalAmount);
+
+        return savedOrder;
     }
 
     @Transactional(readOnly = true)

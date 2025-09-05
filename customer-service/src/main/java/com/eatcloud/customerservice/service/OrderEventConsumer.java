@@ -24,7 +24,8 @@ public class OrderEventConsumer {
     private final PointReservationService pointReservationService;
     private final ObjectMapper objectMapper;
     
-    @KafkaListener(topics = "order.created", groupId = "customer-service", containerFactory = "kafkaListenerContainerFactory")
+    // TODO: 오케스트레이션으로 대체됨 - 비활성화
+    // @KafkaListener(topics = "order.created", groupId = "customer-service", containerFactory = "kafkaListenerContainerFactory")
     @Transactional
     public void handleOrderCreated(String eventJson) {
         try {

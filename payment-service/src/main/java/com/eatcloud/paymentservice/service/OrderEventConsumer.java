@@ -13,7 +13,8 @@ public class OrderEventConsumer {
     
     private final PaymentService paymentService;
     
-    @KafkaListener(topics = "order.created", groupId = "payment-service")
+    // TODO: 오케스트레이션으로 대체됨 - 비활성화
+    // @KafkaListener(topics = "order.created", groupId = "payment-service")
     public void handleOrderCreated(OrderCreatedEvent event) {
         log.info("주문 생성 이벤트 수신: orderId={}, customerId={}, finalAmount={}", 
                 event.getOrderId(), event.getCustomerId(), event.getFinalAmount());

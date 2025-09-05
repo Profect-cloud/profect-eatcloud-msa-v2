@@ -17,5 +17,6 @@ public class CreateOrderResponse {
     private Integer totalPrice;
     private Integer finalPaymentAmount;
     private String orderStatus;
+    private String paymentUrl;
     private String message;
 }

@@ -266,20 +266,20 @@ public class PaymentService {
                 });
 
         // 2. 완료된 Payment가 있다면 환불 처리
-        paymentRepository.findByOrderId(orderId)
-                .ifPresent(payment -> {
-                    if (payment.getPaymentStatus() == PaymentStatus.COMPLETED) {
-                        payment.setPaymentStatus(PaymentStatus.CANCELLED);
-                        payment.setCancelledAt(LocalDateTime.now());
-                        paymentRepository.save(payment);
-                        
-                        log.info("결제 취소 완료: orderId={}, paymentId={}", orderId, payment.getPaymentId());
-                        
-                        // TODO: 실제 PG사 환불 API 호출 (Toss 등)
-                        // tossPaymentService.cancelPayment(payment.getPgTransactionId(), cancelReason);
-                    }
-                });
-
-        log.info("주문 취소로 인한 결제 처리 완료: orderId={}", orderId);
+        // paymentRepository.findByOrderId(orderId)
+        //         .ifPresent(payment -> {
+        //             if (payment.getPaymentStatus() == PaymentStatus.COMPLETED) {
+        //                 payment.setPaymentStatus(PaymentStatus.CANCELLED);
+        //                 payment.setCancelledAt(LocalDateTime.now());
+        //                 paymentRepository.save(payment);
+        //
+        //                 log.info("결제 취소 완료: orderId={}, paymentId={}", orderId, payment.getPaymentId());
+        //
+        //                 // TODO: 실제 PG사 환불 API 호출 (Toss 등)
+        //                 // tossPaymentService.cancelPayment(payment.getPgTransactionId(), cancelReason);
+        //             }
+        //         });
+        //
+        // log.info("주문 취소로 인한 결제 처리 완료: orderId={}", orderId);
     }
 } 
