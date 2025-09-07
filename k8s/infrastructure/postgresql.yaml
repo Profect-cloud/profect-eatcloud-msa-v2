@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: eatcloud
+type: Opaque
+data:
+  # Base64 encoded: devpassword123
+  DB_PASSWORD: ZGV2cGFzc3dvcmQxMjM=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mail-secret
+  namespace: eatcloud
+type: Opaque
+data:
+  # Base64 encoded: muwusuwctubjapli
+  MAIL_PASSWORD: bXV3dXN1d2N0dWJqYXBsaQ==
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eatcloud-db
+  namespace: eatcloud
+  labels:
+    app: eatcloud-db
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+  selector:
+    app: eatcloud-db
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eatcloud-db
+  namespace: eatcloud
+spec:
+  serviceName: eatcloud-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eatcloud-db
+  template:
+    metadata:
+      labels:
+        app: eatcloud-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgis/postgis:17-3.4
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "eatcloud_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: DB_USERNAME
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: DB_PASSWORD
+
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
+          readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - eatcloud_user
+            - -d
+            - eatcloud_db
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - eatcloud_user
+            - -d
+            - eatcloud_db
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: postgres-init-scripts
+          optional: true
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

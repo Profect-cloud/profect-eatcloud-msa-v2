@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eatcloud
+  labels:
+    name: eatcloud
+    environment: development
+---
+# Development namespace for testing
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eatcloud-dev
+  labels:
+    name: eatcloud-dev
+    environment: development
+---
+# Production namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eatcloud-prod
+  labels:
+    name: eatcloud-prod
+    environment: production

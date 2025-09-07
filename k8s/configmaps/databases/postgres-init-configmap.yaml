@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: eatcloud
+data:
+  01-create-databases.sh: |
+    #!/bin/bash
+    set -e
+    
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        -- Create individual databases for each service
+        CREATE DATABASE auth_db;
+        CREATE DATABASE customer_db;
+        CREATE DATABASE admin_db;
+        CREATE DATABASE manager_db;
+        CREATE DATABASE store_db;
+        CREATE DATABASE order_db;
+        CREATE DATABASE payment_db;
+        
+        -- Grant permissions
+        GRANT ALL PRIVILEGES ON DATABASE auth_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE customer_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE admin_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE manager_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE store_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE order_db TO $POSTGRES_USER;
+        GRANT ALL PRIVILEGES ON DATABASE payment_db TO $POSTGRES_USER;
+    EOSQL
+    
+    echo "All databases created successfully!"

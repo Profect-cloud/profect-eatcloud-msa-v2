@@ -1,0 +1,65 @@
+# 개별 DB 설정 ConfigMaps
+# 각 서비스별 DB 이름 및 스키마 설정
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "auth_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customer-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "customer_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "admin_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: manager-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "manager_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: store-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "store_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "order_db"
+  DB_SCHEMA: "public"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-db-config
+  namespace: eatcloud
+data:
+  DB_NAME: "payment_db"
+  DB_SCHEMA: "public"
