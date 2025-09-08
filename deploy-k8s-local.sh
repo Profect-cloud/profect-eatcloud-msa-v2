@@ -82,6 +82,7 @@ deploy_k8s() {
     log_info "ConfigMaps 및 Secrets 배포 중..."
     kubectl apply -f k8s/configmaps/complete-configmap.yaml
     kubectl apply -f k8s/configmaps/database-configmap.yaml
+    kubectl apply -f k8s/secrets/app-secrets.yaml
     
     # 공통 인프라 구성 요소 배포 (Redis, Kafka)
     log_info "공통 인프라 구성 요소 배포 중..."
