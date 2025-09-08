@@ -9,6 +9,7 @@ import com.eatcloud.customerservice.error.CustomerErrorCode;
 import com.eatcloud.autoresponse.error.BusinessException;
 import com.eatcloud.customerservice.repository.AddressRepository;
 import com.eatcloud.customerservice.repository.CustomerRepository;
+import com.eatcloud.logging.annotation.Loggable;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class AddressService {
 
 	private final AddressRepository addressRepository;

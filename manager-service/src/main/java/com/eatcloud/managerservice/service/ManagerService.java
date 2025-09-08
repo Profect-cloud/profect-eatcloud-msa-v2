@@ -3,6 +3,7 @@ package com.eatcloud.managerservice.service;
 import java.util.Collection;
 import java.util.UUID;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.managerservice.dto.SignupRequestDto;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import com.eatcloud.managerservice.dto.UserDto;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ManagerService {
 	private final ManagerRepository managerRepository;
 

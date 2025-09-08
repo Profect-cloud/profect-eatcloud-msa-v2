@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.store.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.repository.DailyMenuSalesRepository;
 import com.eatcloud.storeservice.domain.store.dto.*;
 import com.eatcloud.storeservice.domain.store.entity.DailyStoreSales;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Transactional(readOnly = true)
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class StoreSalesService {
 
     private final DailyStoreSalesRepository dailyStoreSalesRepository;

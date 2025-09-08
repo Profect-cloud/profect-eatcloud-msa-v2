@@ -1,6 +1,7 @@
 package com.eatcloud.storeservice.domain.store.controller;
 
 import com.eatcloud.autoresponse.core.ApiResponse;
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.store.dto.StoreKeywordSearchRequestDto;
 import com.eatcloud.storeservice.domain.store.dto.StoreSearchByMenuCategoryRequestDto;
 import com.eatcloud.storeservice.domain.store.dto.StoreSearchRequestDto;
@@ -23,8 +24,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/stores")
 @AllArgsConstructor
-
 @Tag(name = "5-1. StoreController")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class StoreController {
 
 	private final StoreService storeService;

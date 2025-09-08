@@ -102,7 +102,7 @@ dependencies {
 
     implementation(project(":auto-time"))
     implementation project(':auto-response')
-
+    implementation project(":logging-common")
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
     annotationProcessor 'jakarta.annotation:jakarta.annotation-api'

@@ -10,6 +10,7 @@ import java.util.UUID;
 public class MDCUtil {
     
     public static final String REQUEST_ID = "requestId";
+    public static final String ORDER_ID = "orderId";
     public static final String USER_ID = "userId";
     public static final String USER_ROLE = "userRole";
     public static final String CLIENT_IP = "clientIp";
@@ -20,6 +21,7 @@ public class MDCUtil {
     
     public static void setRequestContext(RequestContext context) {
         MDC.put(REQUEST_ID, context.getRequestId());
+        MDC.put(ORDER_ID, context.getOrderId());
         MDC.put(USER_ID, context.getUserId());
         MDC.put(USER_ROLE, context.getUserRole());
         MDC.put(CLIENT_IP, context.getClientIp());
@@ -31,6 +33,10 @@ public class MDCUtil {
     
     public static void setRequestId(String requestId) {
         MDC.put(REQUEST_ID, requestId != null ? requestId : generateRequestId());
+    }
+    
+    public static void setOrderId(String orderId) {
+        MDC.put(ORDER_ID, orderId);
     }
     
     public static void setUserId(String userId) {
@@ -65,6 +71,10 @@ public class MDCUtil {
         return MDC.get(REQUEST_ID);
     }
     
+    public static String getOrderId() {
+        return MDC.get(ORDER_ID);
+    }
+    
     public static String getUserId() {
         return MDC.get(USER_ID);
     }
@@ -83,6 +93,7 @@ public class MDCUtil {
     
     public static void clearRequestContext() {
         MDC.remove(REQUEST_ID);
+        MDC.remove(ORDER_ID);
         MDC.remove(USER_ID);
         MDC.remove(USER_ROLE);
         MDC.remove(CLIENT_IP);

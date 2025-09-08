@@ -6,6 +6,8 @@ import com.eatcloud.adminservice.domain.admin.message.ResponseMessage;
 import com.eatcloud.adminservice.domain.admin.service.GenericCategoryService;
 import com.eatcloud.autoresponse.core.ApiResponse;
 import com.eatcloud.autoresponse.core.ApiResponseStatus;
+import com.eatcloud.logging.annotation.Loggable;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -23,6 +25,7 @@ import java.util.List;
 	name = "2-2. Admin Category API",
 	description = "관리자가 다양한 카테고리(store, menu 등) CRUD를 수행하는 API"
 )
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
 public class AdminCategoryController {
 
 	private final GenericCategoryService genericCategoryService;

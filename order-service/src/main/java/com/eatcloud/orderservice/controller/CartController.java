@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.CartItem;
 import com.eatcloud.orderservice.dto.request.AddCartItemRequest;
 import com.eatcloud.orderservice.dto.request.UpdateCartItemRequest;
@@ -30,6 +32,7 @@ import com.eatcloud.orderservice.service.CartService;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/orders/cart")
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class CartController {
 
 	private final CartService cartService;

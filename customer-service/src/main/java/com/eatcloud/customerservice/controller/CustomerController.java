@@ -34,6 +34,7 @@ import com.eatcloud.customerservice.service.CustomerService;
 @RestController
 @RequestMapping("/api/v1/customers")
 @Tag(name = "3-1. CustomerController", description = "고객 프로필 관리 API")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class CustomerController {
 
 	private final CustomerService customerService;

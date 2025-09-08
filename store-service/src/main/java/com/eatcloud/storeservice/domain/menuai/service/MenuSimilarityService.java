@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.menuai.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menuai.dto.MenuSimilarityResult;
 import com.eatcloud.storeservice.domain.menuai.entity.MenuVector;
 import com.eatcloud.storeservice.domain.menuai.repository.MenuVectorRepository;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class MenuSimilarityService {
 
 	private final MenuVectorRepository menuVectorRepository;

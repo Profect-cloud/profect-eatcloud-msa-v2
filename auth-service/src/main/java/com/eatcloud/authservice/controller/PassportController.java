@@ -2,6 +2,8 @@ package com.eatcloud.authservice.controller;
 
 import com.eatcloud.authservice.jwt.JwtTokenProvider;
 import com.eatcloud.authservice.jwt.PassportTokenService;
+import com.eatcloud.logging.annotation.Loggable;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "2. PassportController", description = "Passport Token Exchange API")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PassportController {
 
     private final JwtTokenProvider jwtTokenProvider;

@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.menu.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.entity.Menu;
 import com.eatcloud.storeservice.domain.menu.exception.MenuErrorCode;
 import com.eatcloud.storeservice.domain.menu.exception.MenuException;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class MenuService {
 
     private final MenuRepository menuRepository;

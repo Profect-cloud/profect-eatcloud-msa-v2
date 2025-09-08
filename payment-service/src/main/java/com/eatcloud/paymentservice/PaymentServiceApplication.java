@@ -2,9 +2,9 @@ package com.eatcloud.paymentservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
+import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
-public class PaymentServiceApplication {
+@ComponentScan(basePackages = {"com.eatcloud.paymentservice", "com.eatcloud.logging"})public class PaymentServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PaymentServiceApplication.class, args);

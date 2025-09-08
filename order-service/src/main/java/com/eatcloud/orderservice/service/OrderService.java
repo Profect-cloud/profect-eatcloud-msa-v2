@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.entity.Order;
 import com.eatcloud.orderservice.kafka.producer.OrderEventProducer;
 import com.eatcloud.orderservice.repository.OrderItemRepository;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
 public class OrderService {
 
     private final OrderRepository orderRepository;

@@ -23,12 +23,14 @@ import com.eatcloud.customerservice.entity.Customer;
 import com.eatcloud.customerservice.error.CustomerErrorCode;
 import com.eatcloud.autoresponse.error.BusinessException;
 import com.eatcloud.customerservice.repository.CustomerRepository;
+import com.eatcloud.logging.annotation.Loggable;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Transactional(readOnly = true)
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class CustomerService {
 
 	private final CustomerRepository customerRepository;

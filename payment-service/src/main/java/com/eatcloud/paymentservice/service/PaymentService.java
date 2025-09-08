@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.paymentservice.entity.Payment;
 import com.eatcloud.paymentservice.entity.PaymentMethodCode;
 import com.eatcloud.paymentservice.entity.PaymentRequest;
@@ -23,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PaymentService {
     
     private final PaymentRepository paymentRepository;

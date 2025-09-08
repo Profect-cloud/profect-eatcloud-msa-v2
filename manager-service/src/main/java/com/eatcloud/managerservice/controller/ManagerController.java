@@ -3,6 +3,7 @@ package com.eatcloud.managerservice.controller;
 import java.util.UUID;
 
 import com.eatcloud.autoresponse.core.ApiResponse;
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.managerservice.dto.SignupRequestDto;
 import com.eatcloud.managerservice.dto.ManagerDto;
 import com.eatcloud.managerservice.dto.UserDto;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/managers")
 @RequiredArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ManagerController {
 
 	private final ManagerService managerService;

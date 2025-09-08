@@ -6,6 +6,7 @@ import com.eatcloud.adminservice.domain.admin.repository.AdminRepository;
 import com.eatcloud.adminservice.ports.CustomerAdminPort;
 import com.eatcloud.adminservice.ports.ManagerDirectoryPort;
 import com.eatcloud.adminservice.ports.StoreDirectoryPort;
+import com.eatcloud.logging.annotation.Loggable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class AdminService {
 
 	private final CustomerAdminPort customerPort;

@@ -34,6 +34,13 @@ public class KafkaConsumerLoggingUtil {
             MDCUtil.setUserId(userId);
         }
         
+        // Order ID 추출
+        Header orderIdHeader = headers.lastHeader("X-Order-ID");
+        if (orderIdHeader != null) {
+            String orderId = new String(orderIdHeader.value(), StandardCharsets.UTF_8);
+            MDCUtil.setOrderId(orderId);
+        }
+        
         // Source Service 추출
         Header sourceServiceHeader = headers.lastHeader("X-Source-Service");
         if (sourceServiceHeader != null) {

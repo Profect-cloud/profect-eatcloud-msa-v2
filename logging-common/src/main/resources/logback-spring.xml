@@ -28,6 +28,7 @@
                         "service": "${springAppName:-unknown}",
                         "profile": "${springProfile:-local}",
                         "traceId": "%X{requestId:-}",
+                        "orderId": "%X{orderId:-}",
                         "userId": "%X{userId:-}",
                         "userRole": "%X{userRole:-}",
                         "clientIp": "%X{clientIp:-}",
@@ -59,6 +60,7 @@
                         "service": "${springAppName:-unknown}",
                         "profile": "${springProfile:-local}",
                         "traceId": "%X{requestId:-}",
+                        "orderId": "%X{orderId:-}",
                         "userId": "%X{userId:-}",
                         "userRole": "%X{userRole:-}",
                         "clientIp": "%X{clientIp:-}",
@@ -101,6 +103,7 @@
                         "service": "${springAppName:-unknown}",
                         "profile": "${springProfile:-local}",
                         "traceId": "%X{requestId:-}",
+                        "orderId": "%X{orderId:-}",
                         "userId": "%X{userId:-}",
                         "userRole": "%X{userRole:-}",
                         "clientIp": "%X{clientIp:-}",
@@ -137,7 +140,7 @@
     </appender>
     
     <!-- 프로필별 로그 설정 -->
-    <springProfile name="local,dev">
+    <springProfile name="local,dev,docker">
         <logger name="com.eatcloud" level="DEBUG"/>
         <logger name="org.springframework.web" level="DEBUG"/>
         <logger name="org.springframework.security" level="DEBUG"/>

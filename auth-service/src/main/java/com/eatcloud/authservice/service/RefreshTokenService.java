@@ -1,6 +1,8 @@
 package com.eatcloud.authservice.service;
 
 import com.eatcloud.authservice.dto.UserDto;
+import com.eatcloud.logging.annotation.Loggable;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -11,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class RefreshTokenService {
 
     private final RedisTemplate<String, Object> redisTemplate;

@@ -5,6 +5,8 @@ import com.eatcloud.customerservice.entity.PointReservation;
 import com.eatcloud.customerservice.entity.ReservationStatus;
 import com.eatcloud.customerservice.repository.CustomerRepository;
 import com.eatcloud.customerservice.repository.PointReservationRepository;
+import com.eatcloud.logging.annotation.Loggable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PointReservationService {
 
     private final CustomerRepository customerRepository;

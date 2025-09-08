@@ -1,0 +1,211 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: eatcloud-gateway-class
+spec:
+  controllerName: istio.io/gateway-controller # 또는 nginx.org/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: eatcloud-gateway
+  namespace: eatcloud
+spec:
+  gatewayClassName: eatcloud-gateway-class
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: eatcloud-tls-cert
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: eatcloud-api-routes
+  namespace: eatcloud
+spec:
+  parentRefs:
+  - name: eatcloud-gateway
+  hostnames:
+  - "api.eatcloud.local"
+  - "192.168.49.2" # minikube IP
+  rules:
+  # API Routes
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/auth/
+    backendRefs:
+    - name: auth-service
+      port: 8081
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/customers/
+    backendRefs:
+    - name: customer-service
+      port: 8082
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/admin/
+    backendRefs:
+    - name: admin-service
+      port: 8083
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/manager/
+    backendRefs:
+    - name: manager-service
+      port: 8084
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/stores/
+    backendRefs:
+    - name: store-service
+      port: 8085
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/orders/
+    backendRefs:
+    - name: order-service
+      port: 8086
+      
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/payments/
+    backendRefs:
+    - name: payment-service
+      port: 8087
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: eatcloud-swagger-routes
+  namespace: eatcloud
+spec:
+  parentRefs:
+  - name: eatcloud-gateway
+  hostnames:
+  - "api.eatcloud.local"
+  - "192.168.49.2"
+  rules:
+  # Swagger Routes with path rewriting
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /auth-service/
+    backendRefs:
+    - name: auth-service
+      port: 8081
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /customer-service/
+    backendRefs:
+    - name: customer-service
+      port: 8082
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admin-service/
+    backendRefs:
+    - name: admin-service
+      port: 8083
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /manager-service/
+    backendRefs:
+    - name: manager-service
+      port: 8084
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /store-service/
+    backendRefs:
+    - name: store-service
+      port: 8085
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /order-service/
+    backendRefs:
+    - name: order-service
+      port: 8086
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+          
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /payment-service/
+    backendRefs:
+    - name: payment-service
+      port: 8087
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /

@@ -10,7 +10,9 @@ import io.lettuce.core.dynamic.annotation.Param;
 
 import com.eatcloud.autotime.repository.SoftDeleteRepository;
 import com.eatcloud.customerservice.entity.Address;
+import com.eatcloud.logging.annotation.Loggable;
 
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public interface AddressRepository extends SoftDeleteRepository<Address, UUID> {
 	List<Address> findByCustomerIdAndDeletedAtIsNull(UUID customerId);
 

@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "1. AuthController")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class AuthController {
 
 	private final AuthService authService;

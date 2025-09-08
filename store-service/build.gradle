@@ -107,6 +107,7 @@ dependencies {
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
     implementation project(":auto-response")
+    implementation project(":logging-common")
     implementation project(":auto-time")
 
     // Apache Commons Math for vector calculations

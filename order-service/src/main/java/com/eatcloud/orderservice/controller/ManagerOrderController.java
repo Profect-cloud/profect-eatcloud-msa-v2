@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.request.AdminOrderCompleteRequestDto;
 import com.eatcloud.orderservice.dto.request.AdminOrderConfirmRequestDto;
 import com.eatcloud.orderservice.dto.response.AdminOrderResponseDto;
@@ -22,6 +24,7 @@ import com.eatcloud.orderservice.service.AdminOrderService;
 @RequestMapping("/api/v1/orders/admin")
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ManagerOrderController {
 
 	private final AdminOrderService adminOrderService;

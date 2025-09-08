@@ -14,9 +14,12 @@ import org.springframework.stereotype.Service;
 import com.eatcloud.authservice.dto.LoginResponseDto;
 import com.eatcloud.authservice.dto.SignupRedisData;
 import com.eatcloud.authservice.jwt.JwtTokenProvider;
+import com.eatcloud.logging.annotation.Loggable;
+
 import org.springframework.web.client.RestTemplate;
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class AuthService {
 
 	private final PasswordEncoder passwordEncoder;

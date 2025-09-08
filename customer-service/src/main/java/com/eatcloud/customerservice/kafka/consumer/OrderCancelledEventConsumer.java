@@ -3,6 +3,8 @@ package com.eatcloud.customerservice.kafka.consumer;
 import com.eatcloud.customerservice.event.OrderCancelledEvent;
 import com.eatcloud.customerservice.service.PointReservationService;
 
+import com.eatcloud.logging.annotation.Loggable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class OrderCancelledEventConsumer {
 
     private final PointReservationService pointReservationService;

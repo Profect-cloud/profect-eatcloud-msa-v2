@@ -7,6 +7,7 @@ import lombok.Data;
 @Builder
 public class RequestContext {
     private String requestId;
+    private String orderId;
     private String userId;
     private String userRole;
     private String clientIp;

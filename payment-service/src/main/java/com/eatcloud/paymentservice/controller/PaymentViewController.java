@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.controller;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.paymentservice.entity.Payment;
 import com.eatcloud.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Controller
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PaymentViewController {
 
     private final PaymentService paymentService;

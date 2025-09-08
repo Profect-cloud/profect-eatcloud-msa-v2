@@ -9,6 +9,7 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.entity.Menu;
 import com.eatcloud.storeservice.domain.menuai.entity.MenuVector;
 import com.eatcloud.storeservice.domain.menuai.repository.MenuVectorRepository;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class TFIDFService {
 
 	@Autowired
