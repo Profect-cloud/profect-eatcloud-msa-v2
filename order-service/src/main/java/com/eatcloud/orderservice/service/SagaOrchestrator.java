@@ -14,6 +14,10 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientException;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Backoff;
 import org.springframework.http.*;
 
 import java.util.List;
@@ -182,8 +186,14 @@ public class SagaOrchestrator {
     }
 
     /**
-     * 고객 포인트 예약 (패스포트 기반 서비스 간 통신)
+     * 고객 포인트 예약 (재시도 포함)
      */
+    @Retryable(
+        value = {RestClientException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0),
+        recover = "recoverReserveCustomerPoints"
+    )
     private String reserveCustomerPoints(UUID customerId, UUID orderId, Integer points) {
         try {
             String url = "http://customer-service/api/v1/customers/" + customerId + "/points/reserve";
@@ -192,8 +202,7 @@ public class SagaOrchestrator {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Service-Name", "order-service");
             headers.set("X-Customer-Id", customerId.toString()); // 사용자 컨텍스트 전달
-            // TODO: 패스포트 토큰 발급 및 설정
-            // headers.set("Authorization", "Bearer " + getServicePassportToken());
+            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
             
             Map<String, Object> requestBody = Map.of(
                 "orderId", orderId.toString(),
@@ -214,13 +223,38 @@ public class SagaOrchestrator {
         } catch (Exception e) {
             log.error("Failed to reserve customer points: customerId={}, orderId={}, points={}", 
                      customerId, orderId, points, e);
-            throw new OrderException(ErrorCode.POINT_DEDUCTION_FAILED, "포인트 예약에 실패했습니다.");
+            throw new RestClientException("포인트 예약 실패: " + e.getMessage(), e);
         }
     }
 
     /**
-     * 포인트 예약 취소 (보상)
+     * 포인트 예약 재시도 실패 시 복구 처리
      */
+    @Recover
+    private String recoverReserveCustomerPoints(RestClientException ex, UUID customerId, UUID orderId, Integer points) {
+        log.error("포인트 예약 최종 실패 - 수동 처리 필요: customerId={}, orderId={}, points={}, error={}", 
+                customerId, orderId, points, ex.getMessage());
+        
+        // 실패한 포인트 예약을 DLQ나 수동 처리 큐에 추가
+        recordFailedOperation("point_reservation", Map.of(
+            "customerId", customerId.toString(),
+            "orderId", orderId.toString(),
+            "points", points.toString(),
+            "error", ex.getMessage()
+        ));
+        
+        throw new OrderException(ErrorCode.POINT_DEDUCTION_FAILED, "포인트 예약에 실패했습니다. 관리자에게 문의하세요.");
+    }
+
+    /**
+     * 포인트 예약 취소 (보상) - 재시도 포함
+     */
+    @Retryable(
+        value = {RestClientException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0),
+        recover = "recoverCancelPointReservation"
+    )
     private void cancelPointReservation(UUID customerId, UUID orderId) {
         try {
             String url = "http://customer-service/api/v1/customers/" + customerId + "/points/cancel-reservation";
@@ -229,7 +263,7 @@ public class SagaOrchestrator {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Service-Name", "order-service");
             headers.set("X-Customer-Id", customerId.toString());
-            // TODO: 패스포트 토큰 발급 및 설정
+            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
             
             Map<String, Object> requestBody = Map.of("orderId", orderId.toString());
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
@@ -238,64 +272,47 @@ public class SagaOrchestrator {
             log.info("포인트 예약 취소 완료: customerId={}, orderId={}", customerId, orderId);
         } catch (Exception e) {
             log.error("Failed to cancel point reservation: customerId={}, orderId={}", customerId, orderId, e);
+            throw new RestClientException("포인트 예약 취소 실패: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * 결제 완료 후 포인트 예약 처리 (실제 차감)
-     */
-    public void processPaymentCompletion(UUID orderId, UUID paymentId) {
-        log.info("Processing payment completion: orderId={}, paymentId={}", orderId, paymentId);
+    @Recover
+    private void recoverCancelPointReservation(RestClientException ex, UUID customerId, UUID orderId) {
+        log.error("포인트 예약 취소 최종 실패 - 수동 처리 필요: customerId={}, orderId={}, error={}", 
+                customerId, orderId, ex.getMessage());
         
-        try {
-            // 주문 정보 조회
-            Order order = orderService.getOrderById(orderId);
-            
-            if (order.getPointsToUse() != null && order.getPointsToUse() > 0) {
-                // 포인트 예약을 실제 차감으로 처리
-                processPointReservation(order.getCustomerId(), orderId);
-            }
-            
-            log.info("Payment completion processing finished: orderId={}, paymentId={}", orderId, paymentId);
-            
-        } catch (Exception e) {
-            log.error("Failed to process payment completion: orderId={}, paymentId={}", orderId, paymentId, e);
-            throw new RuntimeException("결제 완료 후처리 실패: " + e.getMessage(), e);
-        }
+        recordFailedOperation("point_reservation_cancel", Map.of(
+            "customerId", customerId.toString(),
+            "orderId", orderId.toString(),
+            "error", ex.getMessage()
+        ));
+        // 보상 실패는 예외를 던지지 않고 로그만 남김
     }
 
     /**
-     * 포인트 예약 처리 (실제 차감)
+     * 결제 완료 후 처리 (비동기 이벤트로 대체됨)
+     * @deprecated 이제 PaymentCompletedEvent로 비동기 처리됨
      */
-    private void processPointReservation(UUID customerId, UUID orderId) {
-        try {
-            String url = "http://customer-service/api/v1/customers/" + customerId + "/points/process-reservation";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "order-service");
-            headers.set("X-Customer-Id", customerId.toString());
-            // TODO: 패스포트 토큰 발급 및 설정
-            
-            Map<String, Object> requestBody = Map.of("orderId", orderId.toString());
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("포인트 예약 처리 완료: customerId={}, orderId={}", customerId, orderId);
-            } else {
-                throw new RuntimeException("포인트 예약 처리 실패: " + response.getStatusCode());
-            }
-        } catch (Exception e) {
-            log.error("Failed to process point reservation: customerId={}, orderId={}", customerId, orderId, e);
-            throw new RuntimeException("포인트 예약 처리 실패: " + e.getMessage(), e);
-        }
+    @Deprecated
+    public void processPaymentCompletion(UUID orderId, UUID paymentId) {
+        log.info("⚠️ processPaymentCompletion 호출됨 - 이제 비동기 이벤트로 처리됩니다: orderId={}, paymentId={}", 
+                orderId, paymentId);
+        // 더 이상 동기 처리하지 않음. PaymentCompletedEvent로 비동기 처리됨.
     }
 
     /**
-     * 결제 요청 생성
+     * @deprecated 포인트 차감은 이제 AsyncOrderCompletionService에서 비동기로 처리됨
      */
+
+    /**
+     * 결제 요청 생성 - 재시도 포함
+     */
+    @Retryable(
+        value = {RestClientException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0),
+        recover = "recoverCreatePaymentRequest"
+    )
     private String createPaymentRequest(UUID orderId, UUID customerId, Integer amount) {
         try {
             String url = "http://payment-service/api/v1/payments/request";
@@ -304,7 +321,7 @@ public class SagaOrchestrator {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Service-Name", "order-service");
             headers.set("X-Customer-Id", customerId.toString());
-            // TODO: 패스포트 토큰 발급 및 설정
+            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
             
             Map<String, Object> requestBody = Map.of(
                 "orderId", orderId.toString(),
@@ -325,7 +342,33 @@ public class SagaOrchestrator {
         } catch (Exception e) {
             log.error("Failed to create payment request: orderId={}, customerId={}, amount={}", 
                      orderId, customerId, amount, e);
-            throw new OrderException(ErrorCode.ORDER_PROCESSING, "결제 요청 생성에 실패했습니다.");
+            throw new RestClientException("결제 요청 생성 실패: " + e.getMessage(), e);
         }
+    }
+
+    @Recover
+    private String recoverCreatePaymentRequest(RestClientException ex, UUID orderId, UUID customerId, Integer amount) {
+        log.error("결제 요청 생성 최종 실패 - 수동 처리 필요: orderId={}, customerId={}, amount={}, error={}", 
+                orderId, customerId, amount, ex.getMessage());
+        
+        recordFailedOperation("payment_request", Map.of(
+            "orderId", orderId.toString(),
+            "customerId", customerId.toString(),
+            "amount", amount.toString(),
+            "error", ex.getMessage()
+        ));
+        
+        throw new OrderException(ErrorCode.PAYMENT_REQUEST_FAILED, "결제 요청 생성에 실패했습니다. 관리자에게 문의하세요.");
+    }
+
+    /**
+     * 실패한 작업 기록 (DLQ 대신 로그 기반)
+     */
+    private void recordFailedOperation(String operationType, Map<String, String> details) {
+        // TODO: 실제 환경에서는 DB나 메시지 큐에 저장
+        log.error("MANUAL_INTERVENTION_REQUIRED: Failed operation - type: {}, details: {}", 
+                operationType, details);
+        
+        // 향후 개선: Redis나 DB에 실패한 작업 저장하여 Admin API로 조회/재처리 가능하도록
     }
 }

@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Lazy;
 import com.eatcloud.orderservice.dto.CartItem;
 import com.eatcloud.orderservice.dto.request.CreateOrderRequest;
 import com.eatcloud.orderservice.dto.response.CreateOrderResponse;
+import com.eatcloud.orderservice.event.PaymentCompletedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
@@ -254,11 +255,32 @@ public class OrderService {
         OrderStatusCode paidStatus = orderStatusCodeRepository.findByCode("PAID")
                 .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: PAID"));
 
+        // 1. 주문 상태 업데이트 (DB 트랜잭션)
         order.setPaymentId(paymentId);
         order.setOrderStatusCode(paidStatus);
-        orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
 
         log.info("주문 결제 완료 처리: orderId={}, paymentId={}", orderId, paymentId);
+
+        // 2. 트랜잭션 커밋 후 이벤트 발행 (비동기 후처리 시작)
+        try {
+            PaymentCompletedEvent event = PaymentCompletedEvent.builder()
+                    .orderId(savedOrder.getOrderId())
+                    .paymentId(paymentId)
+                    .customerId(savedOrder.getCustomerId())
+                    .amount(savedOrder.getFinalPaymentAmount())
+                    .completedAt(java.time.LocalDateTime.now())
+                    .pointsUsed(savedOrder.getPointsToUse() != null ? savedOrder.getPointsToUse() : 0)
+                    .build();
+
+            orderEventProducer.publishPaymentCompleted(event);
+            log.info("결제 완료 이벤트 발행 완료: orderId={}, paymentId={}", orderId, paymentId);
+
+        } catch (Exception eventException) {
+            log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
+                     orderId, paymentId, eventException);
+            // 이벤트 발행 실패해도 주문 상태 변경은 성공으로 처리 (이미 DB에 커밋됨)
+        }
     }
 
     public void failPayment(UUID orderId, String failureReason) {
@@ -426,5 +448,8 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 상태 코드입니다."));
 
         order.setOrderStatusCode(statusCodeEntity);
+        orderRepository.save(order);
+
+        log.info("주문 상태 업데이트 완료: orderId={}, newStatus={}", orderId, statusCode);
     }
 }

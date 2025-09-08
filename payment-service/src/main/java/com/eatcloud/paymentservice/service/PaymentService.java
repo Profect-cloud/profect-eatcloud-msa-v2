@@ -155,7 +155,6 @@ public class PaymentService {
             paymentRequestRepository.save(paymentRequest);
         }
 
-        // 주문 서비스에 동기 호출로 결제 완료 알림
         try {
             String url = "http://order-service/api/v1/orders/" + savedPayment.getOrderId() + "/payment/complete";
             

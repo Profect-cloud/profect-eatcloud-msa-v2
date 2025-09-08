@@ -28,6 +28,7 @@ public class OrderCancelledEventConsumer {
 
         } catch (Exception e) {
             log.error("주문 취소 이벤트 처리 실패: orderId={}", event.getOrderId(), e);
+            // DLQ는 KafkaConfig에서 자동 처리됨
             throw e;
         }
     }

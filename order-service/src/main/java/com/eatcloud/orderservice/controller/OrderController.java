@@ -188,11 +188,9 @@ public class OrderController {
 
 			log.info("결제 완료 콜백 수신: orderId={}, paymentId={}", orderId, request.getPaymentId());
 
-			// 1. 주문 상태 업데이트
+			// 주문 상태 업데이트 (이후 비동기 이벤트 발행됨)
 			orderService.completePayment(orderId, request.getPaymentId());
-			
-			// 2. 오케스트레이터를 통한 후속 처리 (포인트 실제 차감)
-			sagaOrchestrator.processPaymentCompletion(orderId, request.getPaymentId());
+			// 포인트 차감 등 후속 처리는 PaymentCompletedEvent로 비동기 처리됨
 
 			response.put("message", "주문 결제 완료 처리되었습니다");
 			response.put("orderId", orderId);

@@ -140,16 +140,13 @@ public class PointController {
         }
     }
 
-    // DTO 클래스들
     public static class ReservePointsRequest {
         @NotNull
         private UUID orderId;
         @NotNull
         private Integer points;
 
-        // getters and setters
         public UUID getOrderId() { return orderId; }
-        public void setOrderId(UUID orderId) { this.orderId = orderId; }
         public Integer getPoints() { return points; }
         public void setPoints(Integer points) { this.points = points; }
     }
@@ -159,7 +156,6 @@ public class PointController {
         private UUID orderId;
 
         public UUID getOrderId() { return orderId; }
-        public void setOrderId(UUID orderId) { this.orderId = orderId; }
     }
 
     public static class CancelReservationRequest {
@@ -167,6 +163,5 @@ public class PointController {
         private UUID orderId;
 
         public UUID getOrderId() { return orderId; }
-        public void setOrderId(UUID orderId) { this.orderId = orderId; }
     }
 }
