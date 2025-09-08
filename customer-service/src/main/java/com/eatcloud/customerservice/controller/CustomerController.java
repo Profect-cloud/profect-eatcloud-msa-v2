@@ -4,6 +4,9 @@ import java.util.UUID;
 
 import com.eatcloud.customerservice.dto.SignupRequestDto;
 import com.eatcloud.customerservice.dto.UserDto;
+import com.eatcloud.logging.annotation.Loggable;
+import com.eatcloud.logging.mdc.MDCUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +30,7 @@ import com.eatcloud.autoresponse.error.BusinessException;
 import com.eatcloud.customerservice.message.ResponseMessage;
 import com.eatcloud.customerservice.service.CustomerService;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/customers")
 @Tag(name = "3-1. CustomerController", description = "고객 프로필 관리 API")
@@ -40,8 +44,14 @@ public class CustomerController {
 
 	private UUID getCustomerUuid(@AuthenticationPrincipal Jwt jwt) {
 		try {
-			return UUID.fromString(jwt.getSubject());
+			UUID customerId = UUID.fromString(jwt.getSubject());
+			// JWT에서 추출한 사용자 정보를 MDC에 설정
+			MDCUtil.setUserId(customerId.toString());
+			MDCUtil.setUserRole("customer");
+			log.debug("Customer authenticated: {}", customerId);
+			return customerId;
 		} catch (IllegalArgumentException e) {
+			log.error("Invalid customer ID in JWT: {}", jwt.getSubject());
 			throw new BusinessException(CustomerErrorCode.INVALID_CUSTOMER_ID);
 		}
 	}
@@ -55,11 +65,15 @@ public class CustomerController {
 	})
 	@GetMapping("/profile")
 	@ResponseStatus(HttpStatus.OK)
+	@Loggable
 	public com.eatcloud.autoresponse.core.ApiResponse<CustomerProfileResponseDto> getCustomer(
 		@AuthenticationPrincipal Jwt jwt) {
 
 		UUID customerId = getCustomerUuid(jwt);
+		log.info("Customer profile request for customer: {}", customerId);
+		
 		CustomerProfileResponseDto response = customerService.getCustomerProfile(customerId);
+		log.info("Customer profile retrieved successfully for customer: {}", customerId);
 		return com.eatcloud.autoresponse.core.ApiResponse.success(response);
 	}
 
@@ -73,12 +87,16 @@ public class CustomerController {
 	})
 	@PatchMapping("/profile")
 	@ResponseStatus(HttpStatus.OK)
+	@Loggable(maskSensitiveData = true)
 	public com.eatcloud.autoresponse.core.ApiResponse<ResponseMessage> updateCustomer(
 		@AuthenticationPrincipal Jwt jwt,
 		@Valid @RequestBody CustomerProfileUpdateRequestDto request) {
 
 		UUID customerId = getCustomerUuid(jwt);
+		log.info("Customer profile update request for customer: {}", customerId);
+		
 		customerService.updateCustomer(customerId, request);
+		log.info("Customer profile updated successfully for customer: {}", customerId);
 		return com.eatcloud.autoresponse.core.ApiResponse.success(ResponseMessage.PROFILE_UPDATE_SUCCESS);
 	}
 

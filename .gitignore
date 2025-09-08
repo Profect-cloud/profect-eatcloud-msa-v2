@@ -93,3 +93,5 @@ Desktop.ini
 # Docker 볼륨 데이터 (로컬 개발시)
 /docker-volumes/
 /data/
+
+k8s/secrets/

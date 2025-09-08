@@ -61,6 +61,7 @@ dependencies {
 	// 공통 모듈 의존성 추가
 	implementation project(':auto-time')
 	implementation project(':auto-response')
+	implementation project(':logging-common')
 
 	// Test Dependencies
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

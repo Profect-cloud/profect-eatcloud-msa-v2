@@ -13,11 +13,14 @@ import com.eatcloud.authservice.service.RefreshTokenService;
 import com.eatcloud.authservice.jwt.JwtTokenProvider;
 import com.eatcloud.autoresponse.core.ApiResponse;
 import com.eatcloud.autoresponse.core.ApiResponseStatus;
+import com.eatcloud.logging.annotation.Loggable;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "1. AuthController")
@@ -51,24 +54,33 @@ public class AuthController {
 
 	@Operation(summary = "이메일 인증", description = "이메일에 발송된 코드로 인증하여 회원을 등록합니다.")
 	@GetMapping("/confirm-email")
+	@Loggable
 	public ApiResponse<Void> confirmEmail(@RequestParam String email, @RequestParam String code) {
+		log.info("Email confirmation request for email: {}", email);
 		authService.confirmEmail(email, code);
+		log.info("Email confirmation successful for email: {}", email);
 		return ApiResponse.success();
 	}
 
 	@Operation(summary = "테스트용 회원가입 (이메일 인증 없이 바로 가입)")
 	@PostMapping("/register-test")
+	@Loggable
 	public ApiResponse<Void> registerTest(@RequestBody SignupRequestDto request) {
+		log.info("Test registration request for email: {}", request.getEmail());
 		authService.signupWithoutEmailVerification(request);
+		log.info("Test registration successful for email: {}", request.getEmail());
 		return ApiResponse.success();
 	}
 
 	@Operation(summary = "로그아웃")
 	@PostMapping("/logout")
+	@Loggable
 	public ApiResponse<Void> logout(@RequestHeader("Authorization") String bearerToken) {
 		String token = bearerToken.substring(7); // "Bearer " 제거
 		UUID userId = jwtTokenProvider.getIdFromToken(token);
 		String role = jwtTokenProvider.getTypeFromToken(token);
+
+		log.info("Logout request for user: {}, role: {}", userId, role);
 
 		Object user = refreshTokenService.findUserByRoleAndId(role, userId);
 		if (user != null) {
@@ -83,17 +95,23 @@ public class AuthController {
 			redisTemplate.opsForValue().set("blacklist:access:" + token, "blacklisted", ttlSeconds, TimeUnit.SECONDS);
 		}
 
+		log.info("Logout successful for user: {}", userId);
 		return ApiResponse.success();
 	}
 
 	@Operation(summary = "토큰 재발급", description = "RefreshToken을 검증하고 AccessToken과 새로운 RefreshToken을 발급합니다.")
 	@PostMapping("/refresh")
+	@Loggable(maskSensitiveData = true)
 	public ApiResponse<LoginResponseDto> refreshToken(@RequestParam String refreshToken) {
 		UUID userId = jwtTokenProvider.getIdFromToken(refreshToken);
 		String role = jwtTokenProvider.getTypeFromToken(refreshToken);
 
+		log.info("Token refresh request for user: {}, role: {}", userId, role);
+
 		Object user = refreshTokenService.findUserByRoleAndId(role, userId);
 		if (user == null || !refreshTokenService.isValid(user, refreshToken)) {
+			log.warn("Invalid refresh token for user: {}", userId);
+			
 			long expirationSeconds = jwtTokenProvider.getExpirationTime(refreshToken) - System.currentTimeMillis();
 			refreshTokenService.addToBlacklist(refreshToken, expirationSeconds);
 			if (user != null) refreshTokenService.delete(user);
@@ -113,6 +131,7 @@ public class AuthController {
 				.type(role)
 				.build();
 
+		log.info("Token refresh successful for user: {}", userId);
 		return ApiResponse.success(response);
 	}
 }
