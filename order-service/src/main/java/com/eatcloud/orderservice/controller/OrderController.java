@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import com.eatcloud.logging.annotation.ExceptionHandling;
 import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.request.OrderStatusUpdateRequest;
 import com.eatcloud.orderservice.dto.request.CreateOrderRequest;
@@ -41,6 +42,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequiredArgsConstructor
 @Slf4j
 @Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
+@ExceptionHandling(autoLog = true, includeStackTrace = true)
 public class OrderController {
 
 	private final OrderService orderService;

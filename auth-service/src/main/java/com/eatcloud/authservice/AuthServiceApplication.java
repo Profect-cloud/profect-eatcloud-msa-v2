@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 
+// @SpringBootApplication
 @SpringBootApplication(exclude = {
     DataSourceAutoConfiguration.class,
 	DataSourceTransactionManagerAutoConfiguration.class,

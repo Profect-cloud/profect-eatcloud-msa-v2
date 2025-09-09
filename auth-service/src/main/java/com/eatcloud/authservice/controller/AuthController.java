@@ -55,7 +55,6 @@ public class AuthController {
 
 	@Operation(summary = "이메일 인증", description = "이메일에 발송된 코드로 인증하여 회원을 등록합니다.")
 	@GetMapping("/confirm-email")
-	@Loggable
 	public ApiResponse<Void> confirmEmail(@RequestParam String email, @RequestParam String code) {
 		log.info("Email confirmation request for email: {}", email);
 		authService.confirmEmail(email, code);
@@ -65,7 +64,6 @@ public class AuthController {
 
 	@Operation(summary = "테스트용 회원가입 (이메일 인증 없이 바로 가입)")
 	@PostMapping("/register-test")
-	@Loggable
 	public ApiResponse<Void> registerTest(@RequestBody SignupRequestDto request) {
 		log.info("Test registration request for email: {}", request.getEmail());
 		authService.signupWithoutEmailVerification(request);
@@ -75,7 +73,6 @@ public class AuthController {
 
 	@Operation(summary = "로그아웃")
 	@PostMapping("/logout")
-	@Loggable
 	public ApiResponse<Void> logout(@RequestHeader("Authorization") String bearerToken) {
 		String token = bearerToken.substring(7); // "Bearer " 제거
 		UUID userId = jwtTokenProvider.getIdFromToken(token);
@@ -102,7 +99,6 @@ public class AuthController {
 
 	@Operation(summary = "토큰 재발급", description = "RefreshToken을 검증하고 AccessToken과 새로운 RefreshToken을 발급합니다.")
 	@PostMapping("/refresh")
-	@Loggable(maskSensitiveData = true)
 	public ApiResponse<LoginResponseDto> refreshToken(@RequestParam String refreshToken) {
 		UUID userId = jwtTokenProvider.getIdFromToken(refreshToken);
 		String role = jwtTokenProvider.getTypeFromToken(refreshToken);

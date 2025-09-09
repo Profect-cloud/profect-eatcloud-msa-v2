@@ -14,7 +14,7 @@ import java.io.IOException;
 
 @Slf4j
 @Component
-@Order(1)
+@Order(100)
 public class LoggingFilter implements Filter {
 
     @Value("${spring.application.name:unknown-service}")

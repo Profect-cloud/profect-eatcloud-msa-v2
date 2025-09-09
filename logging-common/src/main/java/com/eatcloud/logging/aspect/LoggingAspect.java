@@ -10,6 +10,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -68,10 +69,20 @@ public class LoggingAspect {
             loggable = joinPoint.getTarget().getClass().getAnnotation(Loggable.class);
         }
         
+        // 여전히 null이면 기본 설정 사용
+        if (loggable == null) {
+            loggable = getDefaultLoggableConfig();
+        }
+        
         return logMethodExecution(joinPoint, layer, loggable);
     }
 
     private Object logMethodExecution(ProceedingJoinPoint joinPoint, String layer, Loggable config) throws Throwable {
+        // config가 null인 경우 기본값 사용
+        if (config == null) {
+            config = getDefaultLoggableConfig();
+        }
+        
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         String className = joinPoint.getTarget().getClass().getSimpleName();

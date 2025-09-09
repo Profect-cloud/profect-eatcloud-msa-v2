@@ -22,7 +22,7 @@ import com.eatcloud.autoresponse.error.ErrorCode;
 
 import jakarta.validation.ConstraintViolationException;
 
-@RestControllerAdvice
+@RestControllerAdvice("autoResponseExceptionHandler")
 public class ExceptionHandler {
 
 	@org.springframework.web.bind.annotation.ExceptionHandler(BusinessException.class)
