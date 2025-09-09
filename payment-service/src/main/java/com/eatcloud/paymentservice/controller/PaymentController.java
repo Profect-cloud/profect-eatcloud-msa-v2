@@ -88,4 +88,38 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("결제 환불 상태 업데이트 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
+    
+    @PostMapping("/request")
+    @Operation(summary = "결제 요청 생성", description = "주문에 대한 결제 요청을 생성합니다.")
+    public ResponseEntity<Map<String, Object>> createPaymentRequest(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal Jwt jwt) {
+        
+        try {
+            // JWT에서 customerId 추출
+            UUID customerId = UUID.fromString(jwt.getSubject());
+            log.info("결제 요청: customerId={}", customerId);
+            
+            UUID orderId = UUID.fromString((String) request.get("orderId"));
+            Integer amount = (Integer) request.get("amount");
+            
+            log.info("결제 요청 생성: orderId={}, customerId={}, amount={}", orderId, customerId, amount);
+            
+            var paymentRequest = paymentService.createPaymentRequest(orderId, customerId, amount);
+            String paymentUrl = paymentRequest.getRedirectUrl();
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "redirectUrl", paymentUrl,
+                "orderId", orderId.toString(),
+                "amount", amount
+            ));
+            
+        } catch (Exception e) {
+            log.error("결제 요청 생성 실패", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "결제 요청 생성 중 오류가 발생했습니다: " + e.getMessage()
+            ));
+        }
+    }
 } 

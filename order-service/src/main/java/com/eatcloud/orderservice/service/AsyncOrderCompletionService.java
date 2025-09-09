@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +43,35 @@ public class AsyncOrderCompletionService {
     }
 
     /**
+     * Passport 토큰 발급 (서비스 간 호출용)
+     */
+    private String getPassportToken(UUID customerId) {
+        try {
+            String url = "http://auth-service/api/v1/auth/token/exchange";
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            // 임시로 서비스 인증 - 실제로는 서비스별 고유 인증 방식 필요
+            headers.set("X-Service-Name", "order-service");
+            headers.set("X-Customer-Id", customerId.toString());
+            
+            HttpEntity<Void> request = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String passportToken = (String) response.getBody().get("passport");
+                log.info("비동기 처리용 Passport 토큰 발급 성공: customerId={}", customerId);
+                return passportToken;
+            } else {
+                throw new RuntimeException("Passport 토큰 발급 실패: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("비동기 처리용 Passport 토큰 발급 실패: customerId={}", customerId, e);
+            throw new RuntimeException("Passport 토큰 발급 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 포인트 실제 차감 (재시도 포함)
      */
     @Retryable(
@@ -54,13 +84,15 @@ public class AsyncOrderCompletionService {
                 event.getOrderId(), event.getCustomerId(), event.getPointsUsed());
 
         try {
+            // Passport 토큰 발급
+            String passportToken = getPassportToken(event.getCustomerId());
+            
             String url = String.format("http://customer-service/api/v1/customers/%s/points/process-reservation", 
                                      event.getCustomerId());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "order-service");
-            headers.set("X-Customer-Id", event.getCustomerId().toString());
+            headers.set("Authorization", "Bearer " + passportToken); // Passport 토큰 사용
 
             Map<String, Object> requestBody = Map.of(
                 "orderId", event.getOrderId().toString(),

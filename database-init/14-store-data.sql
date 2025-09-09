@@ -4,83 +4,127 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS postgis;
 SET search_path TO public;
 
--- INSERT INTO p_stores (
---     store_id, manager_id,
---     store_name, store_address, phone_number,
---     store_category_id, min_cost, description, store_lat, store_lon,
---     open_status, open_time, close_time, location,
---     rating_sum, rating_count, avg_rating,
---     created_at, created_by, updated_at, updated_by
--- )
--- VALUES
---     (gen_random_uuid(), gen_random_uuid(),
---      '길동네 한식당', '서울 종로구 1번지', '02-111-2222',
---      1, 10000, '정통 한식 전문점입니다.', 37.5725, 126.9769,
---      TRUE, '10:00', '22:00',
---      ST_SetSRID(ST_MakePoint(126.9769, 37.5725), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '철수네 분식', '서울 마포구 2번지', '02-333-4444',
---      2, 8000, '분식 전문점, 떡볶이/순대/튀김', 37.5555, 126.9369,
---      TRUE, '09:00', '21:00',
---      ST_SetSRID(ST_MakePoint(126.9369, 37.5555), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '마포 양식당', '서울 마포구 10번지', '02-888-9999',
---      4, 15000, '파스타와 스테이크 전문점', 37.5560, 126.9400,
---      FALSE, '11:00', '23:00',
---      ST_SetSRID(ST_MakePoint(126.9400, 37.5560), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '맛있는 치킨', '서울 강남구 3번지', '02-555-6666',
---      3, 15000, '치킨 전문점, 다양한 치킨 메뉴', 37.5000, 127.0000,
---      TRUE, '11:00', '24:00',
---      ST_SetSRID(ST_MakePoint(127.0000, 37.5000), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '버거 하우스', '서울 서초구 4번지', '02-777-8888',
---      5, 12000, '햄버거 전문점, 다양한 버거 메뉴', 37.4800, 127.0200,
---      TRUE, '10:00', '23:00',
---      ST_SetSRID(ST_MakePoint(127.0200, 37.4800), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '스시 마스터', '서울 강남구 5번지', '02-999-0000',
---      6, 25000, '정통 일본 스시 전문점', 37.5200, 127.0300,
---      TRUE, '11:30', '22:00',
---      ST_SetSRID(ST_MakePoint(127.0300, 37.5200), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '중국집', '서울 서초구 6번지', '02-111-3333',
---      7, 12000, '정통 중국 요리 전문점', 37.4900, 127.0100,
---      TRUE, '11:00', '22:30',
---      ST_SetSRID(ST_MakePoint(127.0100, 37.4900), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '커피 로스터', '서울 마포구 7번지', '02-444-5555',
---      8, 5000, '스페셜티 커피 전문점', 37.5600, 126.9300,
---      TRUE, '08:00', '20:00',
---      ST_SetSRID(ST_MakePoint(126.9300, 37.5600), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '디저트 카페', '서울 강남구 8번지', '02-666-7777',
---      9, 8000, '수제 디저트 전문 카페', 37.5100, 127.0400,
---      TRUE, '10:00', '21:00',
---      ST_SetSRID(ST_MakePoint(127.0400, 37.5100), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system'),
---     (gen_random_uuid(), gen_random_uuid(),
---      '고기집', '서울 종로구 9번지', '02-222-3333',
---      1, 20000, '프리미엄 고기 전문점', 37.5800, 126.9700,
---      TRUE, '17:00', '23:00',
---      ST_SetSRID(ST_MakePoint(126.9700, 37.5800), 4326)::geography,
---      0, 0, 0,
---      now(), 'system', now(), 'system');
+-- 테스트용 가게 데이터 (개별 INSERT로 분리)
+INSERT INTO p_stores (
+    store_id, manager_id,
+    store_name, store_address, phone_number,
+    store_category_id, min_cost, description, store_lat, store_lon,
+    open_status, open_time, close_time, location,
+    rating_sum, rating_count, avg_rating,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+    '길동네 한식당', '서울 종로구 1번지', '02-111-2222',
+    1, 10000, '정통 한식 전문점입니다.', 37.5725, 126.9769,
+    TRUE, '10:00', '22:00',
+    ST_SetSRID(ST_MakePoint(126.9769, 37.5725), 4326)::geography,
+    0, 0, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (store_name) DO NOTHING;
 
+INSERT INTO p_stores (
+    store_id, manager_id,
+    store_name, store_address, phone_number,
+    store_category_id, min_cost, description, store_lat, store_lon,
+    open_status, open_time, close_time, location,
+    rating_sum, rating_count, avg_rating,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+    '맛있는 치킨', '서울 강남구 3번지', '02-555-6666',
+    3, 15000, '치킨 전문점, 다양한 치킨 메뉴', 37.5000, 127.0000,
+    TRUE, '11:00', '24:00',
+    ST_SetSRID(ST_MakePoint(127.0000, 37.5000), 4326)::geography,
+    0, 0, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (store_name) DO NOTHING;
+
+INSERT INTO p_stores (
+    store_id, manager_id,
+    store_name, store_address, phone_number,
+    store_category_id, min_cost, description, store_lat, store_lon,
+    open_status, open_time, close_time, location,
+    rating_sum, rating_count, avg_rating,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    'dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+    '버거 하우스', '서울 서초구 4번지', '02-777-8888',
+    5, 12000, '햄버거 전문점, 다양한 버거 메뉴', 37.4800, 127.0200,
+    TRUE, '10:00', '23:00',
+    ST_SetSRID(ST_MakePoint(127.0200, 37.4800), 4326)::geography,
+    0, 0, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (store_name) DO NOTHING;
+
+-- 테스트용 메뉴 데이터 (개별 INSERT로 분리)
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '11111111-1111-1111-1111-111111111111'::uuid, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 1,
+    '김치찌개', 'KOREAN', 8000, '진짜 맛있는 김치찌개', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '11111111-1111-1111-1111-111111111112'::uuid, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 2,
+    '된장찌개', 'KOREAN', 7000, '구수한 된장찌개', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '11111111-1111-1111-1111-111111111113'::uuid, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 3,
+    '불고기', 'KOREAN', 15000, '양념이 일품인 불고기', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '22222222-2222-2222-2222-222222222221'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 1,
+    '후라이드 치킨', 'CHICKEN', 18000, '바삭바삭 후라이드', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '22222222-2222-2222-2222-222222222222'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 2,
+    '양념 치킨', 'CHICKEN', 20000, '달콤매콤 양념치킨', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '33333333-3333-3333-3333-333333333331'::uuid, 'dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, 1,
+    '치즈버거', 'BURGER', 8000, '진짜 치즈버거', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '33333333-3333-3333-3333-333333333332'::uuid, 'dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, 2,
+    '불고기버거', 'BURGER', 10000, '한국식 불고기버거', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO p_menus (
+    menu_id, store_id, menu_num, menu_name, menu_category_code, price, description, is_available, image_url, is_unlimited, stock_quantity,
+    created_at, created_by, updated_at, updated_by
+) VALUES (
+    '33333333-3333-3333-3333-333333333333'::uuid, 'dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, 3,
+    '감자튀김', 'SIDE', 4000, '바삭한 감자튀김', true, null, false, 0,
+    now(), 'system', now(), 'system'
+) ON CONFLICT (menu_id) DO NOTHING;

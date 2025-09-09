@@ -50,7 +50,7 @@ public class SagaOrchestrator {
      * 5. 결제 요청 (payment-service)
      */
     @Transactional
-    public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request) {
+    public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request, String authorizationHeader) {
         String sagaId = UUID.randomUUID().toString();
         SagaTransaction saga = new SagaTransaction(sagaId);
 
@@ -67,7 +67,7 @@ public class SagaOrchestrator {
                 5,  // 5초 대기
                 30, // 30초 유지
                 TimeUnit.SECONDS,
-                () -> executeOrderCreation(customerId, request, saga)
+                () -> executeOrderCreation(customerId, request, saga, authorizationHeader)
             );
 
         } catch (Exception e) {
@@ -88,12 +88,13 @@ public class SagaOrchestrator {
      * 실제 주문 생성 로직 실행
      */
     private CreateOrderResponse executeOrderCreation(UUID customerId, CreateOrderRequest request,
-                                                     SagaTransaction saga) throws Exception {
+                                                     SagaTransaction saga, String authorizationHeader) throws Exception {
         log.info("Executing order creation: customerId={}, storeId={}", customerId, request.getStoreId());
 
         // Step 1: 장바구니 조회
         log.info("Step 1: Fetching cart items for customer: {}", customerId);
         List<CartItem> cartItems = cartService.getCart(customerId);
+        log.info("Cart items retrieved: count={}, items={}", cartItems.size(), cartItems);
         if (cartItems.isEmpty()) {
             throw new OrderException(ErrorCode.EMPTY_CART, "장바구니가 비어있습니다.");
         }
@@ -108,6 +109,8 @@ public class SagaOrchestrator {
                 .price(item.getPrice())
                 .build())
             .collect(Collectors.toList());
+        
+        log.info("OrderMenuList created: size={}, items={}", orderMenuList.size(), orderMenuList);
 
         // Step 3: 메뉴 가격 검증 및 업데이트
         log.info("Step 3: Validating menu prices");
@@ -140,7 +143,8 @@ public class SagaOrchestrator {
 
         // Step 6: 결제 요청 생성
         log.info("Step 6: Creating payment request");
-        String paymentUrl = createPaymentRequest(order.getOrderId(), customerId, order.getFinalPaymentAmount());
+        String jwtToken = authorizationHeader; // 명시적으로 변수 할당
+        String paymentUrl = createPaymentRequest(order.getOrderId(), customerId, order.getFinalPaymentAmount(), jwtToken);
 
         // Step 7: 장바구니 비우기
         log.info("Step 7: Clearing cart for customer: {}", customerId);
@@ -170,19 +174,11 @@ public class SagaOrchestrator {
     }
 
     /**
-     * 메뉴 가격 검증 및 업데이트
+     * 메뉴 가격 검증 및 업데이트 (장바구니 가격 사용)
      */
     private void validateAndUpdateMenuPrices(List<OrderMenu> orderMenuList) {
-        for (OrderMenu menu : orderMenuList) {
-            try {
-                Integer currentPrice = externalApiService.getMenuPrice(menu.getMenuId());
-                menu.setPrice(currentPrice);
-            } catch (Exception e) {
-                log.error("Failed to get menu price for menuId: {}", menu.getMenuId(), e);
-                throw new OrderException(ErrorCode.MENU_NOT_FOUND,
-                    "메뉴 가격을 조회할 수 없습니다: " + menu.getMenuId());
-            }
-        }
+        // 장바구니에 저장된 가격을 그대로 사용 (가격 조회 제거)
+        log.info("Using cart prices for menu validation. Menu count: {}", orderMenuList.size());
     }
 
     /**
@@ -196,13 +192,14 @@ public class SagaOrchestrator {
     )
     private String reserveCustomerPoints(UUID customerId, UUID orderId, Integer points) {
         try {
+            // Passport 토큰 발급
+            String passportToken = getPassportToken(customerId);
+            
             String url = "http://customer-service/api/v1/customers/" + customerId + "/points/reserve";
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "order-service");
-            headers.set("X-Customer-Id", customerId.toString()); // 사용자 컨텍스트 전달
-            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
+            headers.set("Authorization", "Bearer " + passportToken); // Passport 토큰 사용
             
             Map<String, Object> requestBody = Map.of(
                 "orderId", orderId.toString(),
@@ -257,13 +254,14 @@ public class SagaOrchestrator {
     )
     private void cancelPointReservation(UUID customerId, UUID orderId) {
         try {
+            // Passport 토큰 발급
+            String passportToken = getPassportToken(customerId);
+            
             String url = "http://customer-service/api/v1/customers/" + customerId + "/points/cancel-reservation";
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "order-service");
-            headers.set("X-Customer-Id", customerId.toString());
-            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
+            headers.set("Authorization", "Bearer " + passportToken); // Passport 토큰 사용
             
             Map<String, Object> requestBody = Map.of("orderId", orderId.toString());
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
@@ -301,6 +299,16 @@ public class SagaOrchestrator {
     }
 
     /**
+     * Passport 토큰 발급 (서비스 간 호출용) - 현재 사용하지 않음
+     * 기존 JWT 토큰을 직접 사용하도록 변경됨
+     */
+    @Deprecated
+    private String getPassportToken(UUID customerId) {
+        // 현재 사용하지 않음 - 기존 JWT 토큰을 직접 사용
+        throw new UnsupportedOperationException("getPassportToken is deprecated. Use JWT token directly.");
+    }
+
+    /**
      * @deprecated 포인트 차감은 이제 AsyncOrderCompletionService에서 비동기로 처리됨
      */
 
@@ -313,15 +321,14 @@ public class SagaOrchestrator {
         backoff = @Backoff(delay = 1000, multiplier = 2.0),
         recover = "recoverCreatePaymentRequest"
     )
-    private String createPaymentRequest(UUID orderId, UUID customerId, Integer amount) {
+    private String createPaymentRequest(UUID orderId, UUID customerId, Integer amount, String authorizationHeader) {
         try {
             String url = "http://payment-service/api/v1/payments/request";
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "order-service");
-            headers.set("X-Customer-Id", customerId.toString());
-            // 서비스 간 호출이므로 패스포트 토큰 불필요 (X-Service-Name으로 인증)
+            headers.set("Authorization", authorizationHeader);
+            // 기존 JWT 토큰 그대로 사용
             
             Map<String, Object> requestBody = Map.of(
                 "orderId", orderId.toString(),

@@ -277,7 +277,7 @@ public class OrderController {
 			UUID customerId = UUID.fromString(jwt.getSubject());
 			log.info("Creating order with Saga: customerId={}, storeId={}", customerId, request.getStoreId());
 
-			CreateOrderResponse response = sagaOrchestrator.createOrderSaga(customerId, request);
+			CreateOrderResponse response = sagaOrchestrator.createOrderSaga(customerId, request, authorizationHeader);
 
 			return ResponseEntity.ok(
 					ApiResponse.<CreateOrderResponse>builder()

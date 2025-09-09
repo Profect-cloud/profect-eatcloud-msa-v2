@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,7 +60,9 @@ public class OrderService {
                     log.info("Starting order creation for customer: {}", customerId);
 
                     List<CartItem> cartItems = cartService.getCart(customerId);
+                    log.info("Cart items retrieved: count={}, items={}", cartItems.size(), cartItems);
                     if (cartItems.isEmpty()) {
+                        log.warn("Cart is empty for customer: {}", customerId);
                         throw new OrderException(ErrorCode.EMPTY_CART);
                     }
 
@@ -71,6 +74,8 @@ public class OrderService {
                             .price(item.getPrice())
                             .build())
                         .collect(Collectors.toList());
+                    
+                    log.info("OrderMenuList created: size={}, items={}", orderMenuList.size(), orderMenuList);
 
                     Order order = createPendingOrder(
                         customerId,
@@ -154,20 +159,8 @@ public class OrderService {
         OrderTypeCode typeCode = orderTypeCodeRepository.findByCode(orderType)
                 .orElseThrow(() -> new RuntimeException("주문 타입 코드를 찾을 수 없습니다: " + orderType));
 
-        for (OrderMenu orderMenu : orderMenuList) {
-            try {
-                Integer menuPrice = externalApiService.getMenuPrice(orderMenu.getMenuId());
-                if (menuPrice != null && menuPrice > 0) {
-                    orderMenu.setPrice(menuPrice);
-                } else {
-                    log.warn("Menu price is null/invalid for menuId: {}, keep cart price: {}",
-                            orderMenu.getMenuId(), orderMenu.getPrice());
-                }
-            } catch (Exception e) {
-                log.warn("Store-service unavailable. Fallback to cart price for menuId: {}. reason={}",
-                        orderMenu.getMenuId(), e.getMessage());
-            }
-        }
+        // 장바구니에 저장된 가격을 그대로 사용 (가격 조회 제거)
+        log.info("Using cart prices for order creation. Menu count: {}", orderMenuList.size());
 
         Integer totalPrice = calculateTotalAmount(orderMenuList);
 
@@ -210,6 +203,26 @@ public class OrderService {
         }
 
         Integer finalPaymentAmount = Math.max(totalPrice - pointsToUse, 0);
+
+        // orderMenuList가 null인 경우 빈 리스트로 초기화
+        if (orderMenuList == null) {
+            orderMenuList = new ArrayList<>();
+            log.warn("orderMenuList was null, initializing with empty list");
+        }
+
+        log.info("Creating Order with orderMenuList: size={}, items={}", 
+                orderMenuList.size(), orderMenuList);
+
+        // orderMenuList가 비어있는 경우 경고
+        if (orderMenuList.isEmpty()) {
+            log.warn("orderMenuList is empty! This will cause database constraint violation.");
+        }
+
+        // orderMenuList가 null인 경우 예외 발생
+        if (orderMenuList == null) {
+            log.error("orderMenuList is null! This should not happen.");
+            throw new RuntimeException("orderMenuList cannot be null");
+        }
 
         Order order = Order.builder()
                 .orderNumber(orderNumber)
