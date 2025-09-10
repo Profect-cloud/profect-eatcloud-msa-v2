@@ -1,0 +1,27 @@
+spring:
+  profiles:
+    active: test
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none     # schema.sql로 생성
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always       # classpath:schema.sql 실행
+
+# 아래 Redis/DB 실제 값은 Testcontainers에서 동적으로 주입됨.
+# (따라서 여기선 비워둬도 됨)
+
+# 테스트 기본 파라미터
+inventory:
+  lock:
+    wait-ms: 300
+    lease-ms: 4000
+  reserve:
+    ttl-sec: 180
