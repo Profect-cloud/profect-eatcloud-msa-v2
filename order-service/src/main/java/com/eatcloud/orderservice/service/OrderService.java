@@ -48,6 +48,9 @@ public class OrderService {
     private CartService cartService;
 
     public CreateOrderResponse createOrderFromCartSimple(UUID customerId, CreateOrderRequest request, String bearerToken) {
+        log.info("=== createOrderFromCartSimple called ===");
+        log.info("customerId: {}, storeId: {}, bearerToken: {}", customerId, request.getStoreId(), bearerToken != null ? "present" : "null");
+        
         String lockKey = "order:create:" + customerId;
         
         try {
@@ -131,6 +134,7 @@ public class OrderService {
             );
         } catch (Exception e) {
             log.error("Order creation failed for customer: {}", customerId, e);
+            log.error("Exception type: {}, message: {}", e.getClass().getSimpleName(), e.getMessage());
 
             if (e.getMessage() != null && (
                 e.getMessage().contains("포인트가 부족합니다") ||
@@ -151,6 +155,10 @@ public class OrderService {
 
     public Order createPendingOrder(UUID customerId, UUID storeId, List<OrderMenu> orderMenuList, String orderType,
                                    Boolean usePoints, Integer pointsToUse, String bearerToken) {
+        log.info("=== createPendingOrder called ===");
+        log.info("customerId: {}, storeId: {}, orderMenuList size: {}", customerId, storeId, orderMenuList != null ? orderMenuList.size() : "null");
+        log.info("orderMenuList: {}", orderMenuList);
+        
         String orderNumber = generateOrderNumber();
 
         OrderStatusCode statusCode = orderStatusCodeRepository.findByCode("PENDING")
@@ -237,7 +245,13 @@ public class OrderService {
                 .finalPaymentAmount(finalPaymentAmount)
                 .build();
 
-        return orderRepository.save(order);
+        log.info("Order entity created: orderId={}, orderMenuList size={}", order.getOrderId(), order.getOrderMenuList() != null ? order.getOrderMenuList().size() : "null");
+        log.info("Order entity orderMenuList: {}", order.getOrderMenuList());
+
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order saved to database: orderId={}, orderMenuList size={}", savedOrder.getOrderId(), savedOrder.getOrderMenuList() != null ? savedOrder.getOrderMenuList().size() : "null");
+        
+        return savedOrder;
     }
 
     @Transactional(readOnly = true)
@@ -365,8 +379,9 @@ public class OrderService {
     public Order createPendingOrder(UUID customerId, UUID storeId, List<OrderMenu> orderMenuList, 
                                    String orderType, Boolean usePoints, Integer pointsToUse) {
         
-        log.info("Creating pending order: customerId={}, storeId={}, orderType={}", 
-                customerId, storeId, orderType);
+        log.info("=== createPendingOrder (6 params) called ===");
+        log.info("customerId: {}, storeId: {}, orderType: {}", customerId, storeId, orderType);
+        log.info("orderMenuList size: {}, orderMenuList: {}", orderMenuList != null ? orderMenuList.size() : "null", orderMenuList);
 
         // 주문 총액 계산
         Integer totalAmount = calculateTotalAmount(orderMenuList);
@@ -391,6 +406,7 @@ public class OrderService {
                 .customerId(customerId)
                 .storeId(storeId)
                 .orderNumber(generateOrderNumber())
+                .orderMenuList(orderMenuList)  // 이 줄이 빠져있었습니다!
                 .totalPrice(totalAmount)
                 .finalPaymentAmount(finalAmount)
                 .pointsToUse(actualPointsToUse)
@@ -400,20 +416,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // 주문 아이템 저장
-        for (OrderMenu menu : orderMenuList) {
-            com.eatcloud.orderservice.entity.OrderItem orderItem = 
-                    com.eatcloud.orderservice.entity.OrderItem.builder()
-                    .order(savedOrder)
-                    .menuId(menu.getMenuId())
-                    .menuName(menu.getMenuName())
-                    .quantity(menu.getQuantity())
-                    .unitPrice(menu.getPrice())
-                    .totalPrice(menu.getPrice() * menu.getQuantity())
-                    .build();
-            
-            orderItemRepository.save(orderItem);
-        }
+        // OrderItem은 별도로 저장하지 않음 (orderMenuList가 Order 엔티티에 JSON으로 저장됨)
 
         log.info("Pending order created: orderId={}, orderNumber={}, totalAmount={}, finalAmount={}", 
                 savedOrder.getOrderId(), savedOrder.getOrderNumber(), totalAmount, finalAmount);

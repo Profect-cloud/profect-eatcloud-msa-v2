@@ -32,6 +32,7 @@ public class PaymentService {
     private final TossPaymentService tossPaymentService;
     private final PaymentMethodCodeRepository paymentMethodCodeRepository;
     private final RestTemplate restTemplate;
+    private final PaymentEventProducer paymentEventProducer;
     
     private static final long PAYMENT_TIMEOUT_MINUTES = 5;
     
@@ -88,31 +89,24 @@ public class PaymentService {
         paymentRequest.updateStatus(PaymentRequestStatus.COMPLETED);
         paymentRequestRepository.save(paymentRequest);
         
-        // 주문 서비스에 동기 호출로 결제 완료 알림
+        // Kafka 이벤트로 결제 완료 알림 (비동기)
         try {
-            String url = "http://order-service/api/v1/orders/" + savedPayment.getOrderId() + "/payment/complete";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "payment-service");
-            
-            Map<String, Object> requestBody = Map.of("paymentId", savedPayment.getPaymentId().toString());
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("주문 서비스에 결제 완료 알림 성공: orderId={}, paymentId={}", 
-                        savedPayment.getOrderId(), savedPayment.getPaymentId());
-            } else {
-                log.error("주문 서비스에 결제 완료 알림 실패: orderId={}, paymentId={}, status={}", 
-                         savedPayment.getOrderId(), savedPayment.getPaymentId(), response.getStatusCode());
-                throw new RuntimeException("주문 상태 업데이트 실패: " + response.getStatusCode());
-            }
-        } catch (RestClientException e) {
-            log.error("주문 서비스 호출 실패: orderId={}, paymentId={}", 
+            paymentEventProducer.publishPaymentCompleted(
+                savedPayment.getOrderId(),
+                savedPayment.getCustomerId(),
+                savedPayment.getPaymentId(),
+                savedPayment.getTotalAmount(), // totalAmount (총 주문 금액)
+                savedPayment.getTotalAmount(), // amount (실제 결제 금액은 주문 서비스에서 계산)
+                0, // pointsUsed (주문 서비스에서 조회)
+                savedPayment.getPaymentMethod().toString(),
+                savedPayment.getPgTransactionId()
+            );
+            log.info("결제 완료 이벤트 발행 성공: orderId={}, paymentId={}", 
+                    savedPayment.getOrderId(), savedPayment.getPaymentId());
+        } catch (Exception e) {
+            log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            throw new RuntimeException("결제는 완료되었으나 주문 상태 업데이트에 실패했습니다: " + e.getMessage(), e);
+            // 이벤트 발행 실패는 결제 완료를 막지 않음
         }
         
         log.info("결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
@@ -155,30 +149,24 @@ public class PaymentService {
             paymentRequestRepository.save(paymentRequest);
         }
 
+        // Kafka 이벤트로 결제 완료 알림 (비동기)
         try {
-            String url = "http://order-service/api/v1/orders/" + savedPayment.getOrderId() + "/payment/complete";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "payment-service");
-            
-            Map<String, Object> requestBody = Map.of("paymentId", savedPayment.getPaymentId().toString());
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("[MOCK] 주문 서비스에 결제 완료 알림 성공: orderId={}, paymentId={}", 
-                        savedPayment.getOrderId(), savedPayment.getPaymentId());
-            } else {
-                log.error("[MOCK] 주문 서비스에 결제 완료 알림 실패: orderId={}, paymentId={}, status={}", 
-                         savedPayment.getOrderId(), savedPayment.getPaymentId(), response.getStatusCode());
-                throw new RuntimeException("주문 상태 업데이트 실패: " + response.getStatusCode());
-            }
-        } catch (RestClientException e) {
-            log.error("[MOCK] 주문 서비스 호출 실패: orderId={}, paymentId={}", 
+            paymentEventProducer.publishPaymentCompleted(
+                savedPayment.getOrderId(),
+                savedPayment.getCustomerId(),
+                savedPayment.getPaymentId(),
+                savedPayment.getTotalAmount(), // totalAmount (총 주문 금액)
+                savedPayment.getTotalAmount(), // amount (실제 결제 금액은 주문 서비스에서 계산)
+                0, // pointsUsed (주문 서비스에서 조회)
+                savedPayment.getPaymentMethod().toString(),
+                savedPayment.getPgTransactionId()
+            );
+            log.info("[MOCK] 결제 완료 이벤트 발행 성공: orderId={}, paymentId={}", 
+                    savedPayment.getOrderId(), savedPayment.getPaymentId());
+        } catch (Exception e) {
+            log.error("[MOCK] 결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            throw new RuntimeException("결제는 완료되었으나 주문 상태 업데이트에 실패했습니다: " + e.getMessage(), e);
+            // 이벤트 발행 실패는 결제 완료를 막지 않음
         }
 
         log.info("[MOCK] 결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
@@ -203,7 +191,7 @@ public class PaymentService {
         };
         return getMethodByCodeOrThrow(code);
     }
-    
+        
     @Async
     public CompletableFuture<Void> schedulePaymentTimeout(UUID paymentRequestId) {
         return CompletableFuture.runAsync(() -> {

@@ -23,6 +23,7 @@ public class PointReservationService {
     private final CustomerRepository customerRepository;
     private final PointReservationRepository pointReservationRepository;
     private final RestTemplate restTemplate;
+    private final CustomerService customerService;
 
     private static final String PAYMENT_SERVICE_URL = "http://payment-service/api/v1/payments";
 
@@ -37,8 +38,7 @@ public class PointReservationService {
             throw new IllegalStateException("이미 포인트 예약이 존재합니다: orderId=" + orderId);
         }
 
-        customer.reservePoints(points);
-        customerRepository.save(customer);
+        customerService.reservePoints(customerId, points);
 
         PointReservation reservation = PointReservation.builder()
                 .customerId(customerId)
@@ -73,20 +73,15 @@ public class PointReservationService {
             return;
         }
 
-        // 고객 조회 및 예약된 포인트 실제 차감
-        Customer customer = customerRepository.findById(reservation.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("고객을 찾을 수 없습니다: " + reservation.getCustomerId()));
-
         // 예약된 포인트를 실제로 차감
-        customer.processReservedPoints(reservation.getPoints());
-        customerRepository.save(customer);
+        customerService.processReservedPoints(reservation.getCustomerId(), reservation.getPoints());
 
         // 예약 상태를 PROCESSED로 변경
         reservation.process();
         pointReservationRepository.save(reservation);
 
         log.info("포인트 예약 처리 완료 (실제 차감됨): orderId={}, customerId={}, points={}, reservationId={}", 
-                orderId, customer.getId(), reservation.getPoints(), reservation.getReservationId());
+                orderId, reservation.getCustomerId(), reservation.getPoints(), reservation.getReservationId());
     }
 
     @Transactional
@@ -107,17 +102,13 @@ public class PointReservationService {
             return;
         }
 
-        Customer customer = customerRepository.findById(reservation.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("고객을 찾을 수 없습니다: " + reservation.getCustomerId()));
-
-        customer.cancelReservedPoints(reservation.getPoints());
-        customerRepository.save(customer);
+        customerService.cancelReservedPoints(reservation.getCustomerId(), reservation.getPoints());
 
         reservation.cancel();
         pointReservationRepository.save(reservation);
 
         log.info("포인트 예약 취소 완료 (예약 해제됨): orderId={}, customerId={}, points={}, reservationId={}",
-                orderId, customer.getId(), reservation.getPoints(), reservation.getReservationId());
+                orderId, reservation.getCustomerId(), reservation.getPoints(), reservation.getReservationId());
 
         try {
             String url = PAYMENT_SERVICE_URL + "/refund/" + orderId;

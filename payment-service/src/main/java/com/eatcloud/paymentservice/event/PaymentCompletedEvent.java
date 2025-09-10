@@ -1,4 +1,4 @@
-package com.eatcloud.orderservice.event;
+package com.eatcloud.paymentservice.event;
 
 import lombok.*;
 

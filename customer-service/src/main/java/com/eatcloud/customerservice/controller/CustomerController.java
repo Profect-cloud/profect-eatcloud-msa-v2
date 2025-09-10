@@ -16,9 +16,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+import com.eatcloud.customerservice.dto.request.ChargePointsRequestDto;
 import com.eatcloud.customerservice.dto.request.ChangePasswordRequestDto;
 import com.eatcloud.customerservice.dto.request.CustomerProfileUpdateRequestDto;
 import com.eatcloud.customerservice.dto.request.CustomerWithdrawRequestDto;
+import com.eatcloud.customerservice.dto.response.ChargePointsResponseDto;
 import com.eatcloud.customerservice.dto.response.CustomerProfileResponseDto;
 import com.eatcloud.customerservice.error.CustomerErrorCode;
 import com.eatcloud.autoresponse.error.BusinessException;
@@ -150,4 +152,38 @@ public class CustomerController {
 		CustomerProfileResponseDto response = customerService.getCustomerProfile(customerId);
 		return com.eatcloud.autoresponse.core.ApiResponse.success(response);
 	}
+
+	@Operation(summary = "포인트 충전", description = "고객의 포인트를 충전합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "충전 성공"),
+		@ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+		@ApiResponse(responseCode = "404", description = "고객을 찾을 수 없음")
+	})
+	@PostMapping("/{customerId}/points/charge")
+	@ResponseStatus(HttpStatus.OK)
+	public com.eatcloud.autoresponse.core.ApiResponse<ChargePointsResponseDto> chargePoints(
+		@PathVariable UUID customerId,
+		@Valid @RequestBody ChargePointsRequestDto request) {
+
+		ChargePointsResponseDto response = customerService.chargePoints(customerId, request);
+		return com.eatcloud.autoresponse.core.ApiResponse.success(response);
+	}
+
+	@Operation(summary = "내 포인트 충전", description = "현재 로그인한 사용자의 포인트를 충전합니다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "충전 성공"),
+		@ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+		@ApiResponse(responseCode = "404", description = "고객을 찾을 수 없음")
+	})
+	@PostMapping("/me/points/charge")
+	@ResponseStatus(HttpStatus.OK)
+	public com.eatcloud.autoresponse.core.ApiResponse<ChargePointsResponseDto> chargeMyPoints(
+		@AuthenticationPrincipal Jwt jwt,
+		@Valid @RequestBody ChargePointsRequestDto request) {
+
+		UUID customerId = UUID.fromString(jwt.getSubject());
+		ChargePointsResponseDto response = customerService.chargePoints(customerId, request);
+		return com.eatcloud.autoresponse.core.ApiResponse.success(response);
+	}
+
 }

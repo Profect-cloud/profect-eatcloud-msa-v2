@@ -110,7 +110,7 @@ public class PaymentController {
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "redirectUrl", paymentUrl,
+                "paymentUrl", paymentUrl,
                 "orderId", orderId.toString(),
                 "amount", amount
             ));
