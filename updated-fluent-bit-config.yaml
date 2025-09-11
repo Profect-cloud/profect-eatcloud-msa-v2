@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: dev
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Health_Check  On
+
+    # Original file-based inputs
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.stateful
+        Path              /var/log/app/*-stateful.log
+        Parser            json
+        DB                /fluent-bit/tail/stateful.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.stateless
+        Path              /var/log/app/*-stateless.log
+        Parser            json
+        DB                /fluent-bit/tail/stateless.db
+        Mem_Buf_Limit     100MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.recommendation
+        Path              /var/log/app/*-recommendation.log
+        Parser            json
+        DB                /fluent-bit/tail/recommendation.db
+        Mem_Buf_Limit     20MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+
+    # NEW: Admin service container logs from shared volume
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.admin
+        Path              /var/log/app/admin-service.log
+        Parser            json
+        DB                /fluent-bit/tail/admin.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    # NEW: Shared volume logs if admin-service writes to files
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.admin-file
+        Path              /var/log/app/admin-service*.log
+        Parser            json
+        DB                /fluent-bit/tail/admin-file.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [FILTER]
+        Name    modify
+        Match   eatcloud.*
+        Add     cluster_name eatcloud
+        Add     region ap-northeast-2
+
+
+
+    # File outputs (existing)
+    [OUTPUT]
+        Name                file
+        Match               eatcloud.stateful
+        Path                /var/log/fluent-bit/
+        File                stateful-logs.txt
+
+    [OUTPUT]
+        Name                file
+        Match               eatcloud.stateless
+        Path                /var/log/fluent-bit/
+        File                stateless-logs.txt
+
+    [OUTPUT]
+        Name                file
+        Match               eatcloud.recommendation
+        Path                /var/log/fluent-bit/
+        File                recommendation-logs.txt
+
+    # NEW: File output for admin service logs
+    [OUTPUT]
+        Name                file
+        Match               eatcloud.admin*
+        Path                /var/log/fluent-bit/
+        File                admin-logs.txt
+
+    # NEW: Kinesis Data Streams output
+    [OUTPUT]
+        Name                kinesis_streams
+        Match               eatcloud.*
+        region              ap-northeast-2
+        stream              eatcloud-logs
+        time_key            @timestamp
+        time_key_format     %Y-%m-%dT%H:%M:%S.%3NZ
+
+    # Console output for debugging
+    [OUTPUT]
+        Name                stdout
+        Match               eatcloud.*
+
+  parsers.conf: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%3N
+        Time_Keep   On
+
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On

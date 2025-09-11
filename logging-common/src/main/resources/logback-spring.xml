@@ -170,4 +170,18 @@
         </root>
     </springProfile>
     
+    <springProfile name="aws">
+        <logger name="com.eatcloud" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="com.netflix.discovery" level="OFF"/>
+        <logger name="org.springframework.cloud.netflix.eureka" level="OFF"/>
+        
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_ERROR_FILE"/>
+        </root>
+    </springProfile>
+    
 </configuration>
