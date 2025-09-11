@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: dev
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Health_Check  On
+
+    # 1. 상태 기반 로그 수집 (Stateful)
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.stateful
+        Path              /var/log/app/*-stateful.log
+        Parser            json
+        DB                /fluent-bit/tail/stateful.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    # 2. 상태 비기반 로그 수집 (Stateless)  
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.stateless
+        Path              /var/log/app/*-stateless.log
+        Parser            json
+        DB                /fluent-bit/tail/stateless.db
+        Mem_Buf_Limit     100MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    # 3. 추천 이벤트 로그 수집 (Recommendation)
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.recommendation
+        Path              /var/log/app/*-recommendation.log
+        Parser            json
+        DB                /fluent-bit/tail/recommendation.db
+        Mem_Buf_Limit     20MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+
+    # 공통 필터: 서비스 정보 추가
+    [FILTER]
+        Name    modify
+        Match   eatcloud.*
+        Add     cluster_name eatcloud
+        Add     region ap-northeast-2
+
+    # 상태 기반 로그 → Kinesis Analytics
+    [OUTPUT]
+        Name                         kinesis_streams
+        Match                        eatcloud.stateful
+        region                       ap-northeast-2
+        stream                       eatcloud-stateful-logs
+        partition_key                service
+        append_newline               true
+        time_key                     timestamp
+        time_key_format              %Y-%m-%dT%H:%M:%S.%3N
+        compression                  gzip
+
+    # 상태 비기반 로그 → Vector
+    [OUTPUT]
+        Name                         kinesis_streams
+        Match                        eatcloud.stateless
+        region                       ap-northeast-2
+        stream                       eatcloud-stateless-logs
+        partition_key                service
+        append_newline               true
+        time_key                     timestamp
+        time_key_format              %Y-%m-%dT%H:%M:%S.%3N
+        compression                  gzip
+
+    # 추천 이벤트 → MongoDB (via Kinesis)
+    [OUTPUT]
+        Name                         kinesis_streams
+        Match                        eatcloud.recommendation
+        region                       ap-northeast-2
+        stream                       eatcloud-recommendation-events
+        partition_key                userId
+        append_newline               true
+        time_key                     timestamp
+        time_key_format              %Y-%m-%dT%H:%M:%S.%3N
+
+  parsers.conf: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%3N
+        Time_Keep   On
+
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+    [PARSER]
+        Name        apache
+        Format      regex
+        Regex       ^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$
+        Time_Key    time
+        Time_Format %d/%b/%Y:%H:%M:%S %z
+
+    [PARSER]
+        Name        nginx
+        Format      regex
+        Regex       ^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$
+        Time_Key    time
+        Time_Format %d/%b/%Y:%H:%M:%S %z

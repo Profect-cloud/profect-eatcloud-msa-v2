@@ -1,0 +1,175 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-test-config
+  namespace: dev
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Health_Check  On
+
+    # 테스트용 로그 수집
+    [INPUT]
+        Name              tail
+        Tag               eatcloud.test
+        Path              /var/log/app/*.log
+        Parser            json
+        DB                /fluent-bit/tail/test.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    # 콘솔 출력 (테스트용)
+    [OUTPUT]
+        Name  stdout
+        Match eatcloud.test
+
+    # 파일 출력 (테스트용)
+    [OUTPUT]
+        Name  file
+        Match eatcloud.test
+        Path  /fluent-bit/logs/output.log
+
+  parsers.conf: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%3N
+        Time_Keep   On
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-generator-test
+  namespace: dev
+  labels:
+    app: log-generator-test
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-generator-test
+  template:
+    metadata:
+      labels:
+        app: log-generator-test
+        version: v1
+    spec:
+      serviceAccountName: fluent-bit-service-account
+      containers:
+      # 로그 생성 컨테이너 (간단한 busybox)
+      - name: log-generator
+        image: busybox:1.35
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "Starting log generator..."
+            mkdir -p /var/log/app
+            
+            # 3가지 타입의 로그 파일 생성
+            while true; do
+              # Stateful 로그
+              echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"log-generator\",\"logType\":\"stateful\",\"message\":\"Stateful log entry $(date)\",\"orderId\":\"order-$(date +%s)\"}" >> /var/log/app/log-generator-stateful.log
+              
+              # Stateless 로그  
+              echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"log-generator\",\"logType\":\"stateless\",\"message\":\"Stateless log entry $(date)\"}" >> /var/log/app/log-generator-stateless.log
+              
+              # Recommendation 로그
+              echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"log-generator\",\"logType\":\"recommendation\",\"message\":\"RECOMMENDATION_EVENT={\\\"eventType\\\":\\\"USER_SEARCH\\\",\\\"userId\\\":\\\"user-$(date +%s)\\\",\\\"searchKeyword\\\":\\\"test-keyword\\\"}\"}" >> /var/log/app/log-generator-recommendation.log
+              
+              # Error 로그
+              echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"ERROR\",\"service\":\"log-generator\",\"logType\":\"error\",\"message\":\"Test error message\"}" >> /var/log/app/log-generator-error.log
+              
+              sleep 10
+            done
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+      # Fluent Bit 사이드카 컨테이너
+      - name: fluent-bit
+        image: fluent/fluent-bit:2.2.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 2020
+          name: http-metrics
+        volumeMounts:
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        - name: app-logs
+          mountPath: /var/log/app
+          readOnly: true
+        - name: fluent-bit-db
+          mountPath: /fluent-bit/tail
+        - name: fluent-bit-output
+          mountPath: /fluent-bit/logs
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+      volumes:
+      # 로그 파일 공유 볼륨
+      - name: app-logs
+        emptyDir: {}
+      # Fluent Bit DB 볼륨
+      - name: fluent-bit-db
+        emptyDir: {}
+      # Fluent Bit 출력 볼륨
+      - name: fluent-bit-output
+        emptyDir: {}
+      # Fluent Bit 설정
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-test-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-generator-test
+  namespace: dev
+  labels:
+    app: log-generator-test
+spec:
+  ports:
+  - port: 2020
+    targetPort: 2020
+    protocol: TCP
+    name: metrics
+  selector:
+    app: log-generator-test
+  type: ClusterIP

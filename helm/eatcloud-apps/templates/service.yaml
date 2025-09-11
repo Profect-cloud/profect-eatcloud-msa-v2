@@ -1,0 +1,29 @@
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceConfig.name }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    app: {{ $serviceConfig.name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    release: {{ $.Release.Name }}
+spec:
+  ports:
+  - port: 80
+    targetPort: {{ $serviceConfig.port }}
+    protocol: TCP
+    name: http
+  {{- if $.Values.fluentBit.enabled }}
+  - port: 2020
+    targetPort: 2020
+    protocol: TCP
+    name: metrics
+  {{- end }}
+  selector:
+    app: {{ $serviceConfig.name }}
+  type: ClusterIP
+{{- end }}
+{{- end }}

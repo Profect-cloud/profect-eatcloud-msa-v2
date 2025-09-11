@@ -1,0 +1,188 @@
+# ConfigMap for dev namespace (eureka 제거)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  namespace: dev
+data:
+  # Database Configuration - 단순화된 설정
+  DB_HOST: "localhost"  # 일단 로컬호스트로 설정
+  DB_PORT: "5432"
+  DB_USERNAME: "eatcloud_user"
+  DB_NAME: "auth_db"
+  
+  # Redis Configuration (비활성화)
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  REDIS_TIMEOUT: "10000ms"
+  REDIS_SSL_ENABLED: "false"
+  
+  # Eureka Configuration (비활성화)
+  EUREKA_CLIENT_ENABLED: "false"
+  SPRING_CLOUD_DISCOVERY_ENABLED: "false"
+  
+  # Spring Profiles
+  SPRING_PROFILES_ACTIVE: "dev"
+  
+  # JPA Configuration
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
+  SPRING_JPA_SHOW_SQL: "true"
+  SPRING_JPA_DATABASE_PLATFORM: "org.hibernate.dialect.H2Dialect"
+  
+  # H2 Database (임시)
+  SPRING_DATASOURCE_URL: "jdbc:h2:mem:testdb"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.h2.Driver"
+  SPRING_H2_CONSOLE_ENABLED: "true"
+  
+  # Logging Configuration
+  LOGGING_LEVEL_COM_EATCLOUD: "DEBUG"
+  
+  # Management Endpoints
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics"
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+  
+  # Mail Configuration (for auth-service)
+  SPRING_MAIL_HOST: "smtp.gmail.com"
+  SPRING_MAIL_PORT: "587"
+  SPRING_MAIL_USERNAME: "profect.eatcloud@gmail.com"
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+
+---
+# Secret for dev namespace
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: dev
+type: Opaque
+data:
+  # Base64 encoded values
+  DB_PASSWORD: ZGV2cGFzc3dvcmQxMjM=
+  MAIL_PASSWORD: bXV3dXN1d2N0dWJqYXBsaQ==
+  JWT_SECRET: YkwzZXEwTHZkcUs5MmRPais2Y1RWdHpjRUhUUGY5K1V0dzdSKzNUMDFsYlhXdmtzbjZGZXpJamFOVlFnRUdrRA==
+  TOSS_SECRET_KEY: dGVzdF9za19FUDU5THliWjhCdlBuYWtlekxCRzg2R1lvN3BS
+  GEMINI_API_KEY: QUl6YVN5Q1FBZ2k5SEVkUkdnSm1LV1pVOVptX3I3OXV6SWI2czVZ
+
+---
+# Auth Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: dev
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: eatcloud/auth-service:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          value: "8080"
+        - name: SPRING_PROFILES_ACTIVE
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_PROFILES_ACTIVE
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_DATASOURCE_URL
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        - name: SPRING_JPA_DATABASE_PLATFORM
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_JPA_DATABASE_PLATFORM
+        - name: EUREKA_CLIENT_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: EUREKA_CLIENT_ENABLED
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+        - name: MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: MAIL_PASSWORD
+        - name: SPRING_MAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_MAIL_HOST
+        - name: SPRING_MAIL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_MAIL_PORT
+        - name: SPRING_MAIL_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: SPRING_MAIL_USERNAME
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        imagePullPolicy: IfNotPresent
+
+---
+# Auth Service Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: dev
+  labels:
+    app: auth-service
+spec:
+  ports:
+  - port: 8081
+    targetPort: 8080
+    name: http
+  selector:
+    app: auth-service
+  type: ClusterIP

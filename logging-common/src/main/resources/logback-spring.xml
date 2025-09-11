@@ -78,7 +78,7 @@
             <totalSizeCap>3GB</totalSizeCap>
         </rollingPolicy>
     </appender>
-    
+
     <!-- Error File Appender -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}-error.log</file>
@@ -119,7 +119,7 @@
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
     </appender>
-    
+
     <!-- Async Appender for better performance -->
     <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="FILE"/>
@@ -127,14 +127,14 @@
         <discardingThreshold>0</discardingThreshold>
         <includeCallerData>true</includeCallerData>
     </appender>
-    
+
     <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="ERROR_FILE"/>
         <queueSize>1024</queueSize>
         <discardingThreshold>0</discardingThreshold>
         <includeCallerData>true</includeCallerData>
     </appender>
-    
+
     <!-- 프로필별 로그 설정 -->
     <springProfile name="local,dev,docker">
         <logger name="com.eatcloud" level="DEBUG"/>
@@ -142,20 +142,20 @@
         <logger name="org.springframework.security" level="DEBUG"/>
         <logger name="org.hibernate.SQL" level="DEBUG"/>
         <logger name="org.hibernate.type" level="TRACE"/>
-        
+
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="ASYNC_FILE"/>
             <appender-ref ref="ASYNC_ERROR_FILE"/>
         </root>
     </springProfile>
-    
+
     <springProfile name="prod">
         <logger name="com.eatcloud" level="INFO"/>
         <logger name="org.springframework" level="WARN"/>
         <logger name="org.hibernate" level="WARN"/>
         <logger name="root" level="WARN"/>
-        
+
         <root level="INFO">
             <appender-ref ref="ASYNC_FILE"/>
             <appender-ref ref="ASYNC_ERROR_FILE"/>

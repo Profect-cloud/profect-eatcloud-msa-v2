@@ -1,0 +1,32 @@
+# 개발 환경 설정
+fluentBit:
+  environment: dev
+  
+  local:
+    enabled: true
+    
+  aws:
+    enabled: false
+
+services:
+  adminService:
+    enabled: true
+    logLevel: DEBUG
+    
+  customerService:
+    enabled: true
+    logLevel: DEBUG
+
+config:
+  outputs: |
+    [OUTPUT]
+        Name  stdout
+        Match *
+        Format json_lines
+    
+    [OUTPUT]
+        Name  file
+        Match *
+        Path /tmp/fluent-bit-logs/
+        File app.log
+        Format json_lines

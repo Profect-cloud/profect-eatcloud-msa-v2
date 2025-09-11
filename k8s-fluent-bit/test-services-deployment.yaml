@@ -1,0 +1,297 @@
+# EatCloud MSA 테스트 서비스 (admin-service, customer-service)
+# Fluent Bit 사이드카로 로그 수집 테스트
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-service
+  namespace: dev
+  labels:
+    app: admin-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-service
+  template:
+    metadata:
+      labels:
+        app: admin-service
+        version: v1
+    spec:
+      serviceAccountName: fluent-bit-service-account
+      containers:
+      # 메인 애플리케이션 컨테이너
+      - name: admin-service
+        image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/admin-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "dev"
+        - name: LOG_PATH
+          value: "/var/log/app"
+        - name: SPRING_APPLICATION_NAME
+          value: "admin-service"
+        # 추천 이벤트 로깅 활성화
+        - name: LOGGING_RECOMMENDATION_ENABLED
+          value: "true"
+        envFrom:
+        - configMapRef:
+            name: complete-configmap
+        - secretRef:
+            name: app-secrets
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+        - name: fluent-bit-logs
+          mountPath: /var/log/fluent-bit
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+      # Fluent Bit 사이드카 컨테이너
+      - name: fluent-bit
+        image: fluent/fluent-bit:2.2.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 2020
+          name: http-metrics
+        volumeMounts:
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        - name: app-logs
+          mountPath: /var/log/app
+          readOnly: true
+        - name: fluent-bit-db
+          mountPath: /fluent-bit/tail
+        - name: fluent-bit-logs
+          mountPath: /var/log/fluent-bit
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+      volumes:
+      # 로그 파일 공유 볼륨
+      - name: app-logs
+        emptyDir: {}
+      # Fluent Bit DB 볼륨
+      - name: fluent-bit-db
+        emptyDir: {}
+      # Fluent Bit 출력 로그 볼륨
+      - name: fluent-bit-logs
+        emptyDir: {}
+      # Fluent Bit 설정
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-service
+  namespace: dev
+  labels:
+    app: admin-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 8081
+    protocol: TCP
+    name: http
+  - port: 2020
+    targetPort: 2020
+    protocol: TCP
+    name: metrics
+  selector:
+    app: admin-service
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+  namespace: dev
+  labels:
+    app: customer-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+        version: v1
+    spec:
+      serviceAccountName: fluent-bit-service-account
+      containers:
+      # 메인 애플리케이션 컨테이너
+      - name: customer-service
+        image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/customer-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "dev"
+        - name: LOG_PATH
+          value: "/var/log/app"
+        - name: SPRING_APPLICATION_NAME
+          value: "customer-service"
+        # 추천 이벤트 로깅 활성화
+        - name: LOGGING_RECOMMENDATION_ENABLED
+          value: "true"
+        envFrom:
+        - configMapRef:
+            name: complete-configmap
+        - secretRef:
+            name: app-secrets
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+        - name: fluent-bit-logs
+          mountPath: /var/log/fluent-bit
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+      # Fluent Bit 사이드카 컨테이너
+      - name: fluent-bit
+        image: fluent/fluent-bit:2.2.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 2020
+          name: http-metrics
+        volumeMounts:
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        - name: app-logs
+          mountPath: /var/log/app
+          readOnly: true
+        - name: fluent-bit-db
+          mountPath: /fluent-bit/tail
+        - name: fluent-bit-logs
+          mountPath: /var/log/fluent-bit
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+      volumes:
+      # 로그 파일 공유 볼륨
+      - name: app-logs
+        emptyDir: {}
+      # Fluent Bit DB 볼륨
+      - name: fluent-bit-db
+        emptyDir: {}
+      # Fluent Bit 출력 로그 볼륨
+      - name: fluent-bit-logs
+        emptyDir: {}
+      # Fluent Bit 설정
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+  namespace: dev
+  labels:
+    app: customer-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 8082
+    protocol: TCP
+    name: http
+  - port: 2020
+    targetPort: 2020
+    protocol: TCP
+    name: metrics
+  selector:
+    app: customer-service
+  type: ClusterIP
+

@@ -1,0 +1,162 @@
+# Simple Spring Boot applications for testing Fargate
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simple-config
+  namespace: dev
+data:
+  SERVER_PORT: "8080"
+  SPRING_PROFILES_ACTIVE: "dev"
+
+---
+# Customer Service (간단한 Spring Boot 앱)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+  namespace: dev
+  labels:
+    app: customer-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+    spec:
+      containers:
+      - name: customer-service
+        image: springio/gs-spring-boot-docker:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: simple-config
+              key: SERVER_PORT
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Customer Service Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+  namespace: dev
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: customer-service
+  type: ClusterIP
+
+---
+# Store Service 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-service
+  namespace: dev
+  labels:
+    app: store-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: store-service
+  template:
+    metadata:
+      labels:
+        app: store-service
+    spec:
+      containers:
+      - name: store-service
+        image: springio/gs-spring-boot-docker:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          value: "8081"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Store Service Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-service
+  namespace: dev
+spec:
+  ports:
+  - port: 8081
+    targetPort: 8080
+    name: http
+  selector:
+    app: store-service
+  type: ClusterIP
+
+---
+# Order Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: dev
+  labels:
+    app: order-service
+spec:
+  replicas: 2  # 확장성 테스트
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+# Order Service Service  
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: dev
+spec:
+  ports:
+  - port: 8082
+    targetPort: 80
+    name: http
+  selector:
+    app: order-service
+  type: ClusterIP

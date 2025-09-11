@@ -1,0 +1,47 @@
+# 프로덕션 환경 설정
+fluentBit:
+  environment: prod
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+      
+  local:
+    enabled: false
+    
+  aws:
+    enabled: true
+    region: ap-northeast-2
+    kinesis:
+      stream: eatcloud-prod-logs
+
+services:
+  adminService:
+    enabled: true
+    logLevel: INFO
+    
+  customerService:
+    enabled: true
+    logLevel: INFO
+    
+  orderService:
+    enabled: true
+    logLevel: INFO
+    
+  deliveryService:
+    enabled: true
+    logLevel: INFO
+
+config:
+  outputs: |
+    [OUTPUT]
+        Name  kinesis_streams
+        Match *
+        region {{ .Values.fluentBit.aws.region }}
+        stream {{ .Values.fluentBit.aws.kinesis.stream }}
+        time_key timestamp
+        time_key_format %Y-%m-%dT%H:%M:%S.%L

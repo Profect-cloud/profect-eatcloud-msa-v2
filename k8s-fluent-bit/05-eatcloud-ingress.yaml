@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eatcloud-ingress
+  namespace: dev
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: eatcloud-internal
+    alb.ingress.kubernetes.io/group.order: '100'
+    alb.ingress.kubernetes.io/load-balancer-name: eatcloud-internal-alb
+    alb.ingress.kubernetes.io/subnets: subnet-0c66ca1fea24116a5,subnet-029b4e47d0be0c4b5
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+spec:
+  rules:
+  - http:
+      paths:
+      # Admin Service
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-service
+            port:
+              number: 80
+      # Customer Service
+      - path: /customer
+        pathType: Prefix
+        backend:
+          service:
+            name: customer-service
+            port:
+              number: 80
+      # Fluent Bit Metrics (Admin)
+      - path: /metrics/admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-service
+            port:
+              number: 2020
+      # Fluent Bit Metrics (Customer)
+      - path: /metrics/customer
+        pathType: Prefix
+        backend:
+          service:
+            name: customer-service
+            port:
+              number: 2020

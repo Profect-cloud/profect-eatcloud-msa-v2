@@ -1,0 +1,126 @@
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceConfig.name }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    app: {{ $serviceConfig.name }}
+    version: v1
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    release: {{ $.Release.Name }}
+spec:
+  replicas: {{ $serviceConfig.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ $serviceConfig.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $serviceConfig.name }}
+        version: v1
+    spec:
+      serviceAccountName: {{ $.Values.common.serviceAccountName }}
+      containers:
+      # 메인 애플리케이션 컨테이너
+      - name: {{ $serviceConfig.name }}
+        image: {{ $.Values.image.registry }}/{{ $serviceConfig.image }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ $serviceConfig.port }}
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: {{ $.Values.global.environment }}
+        - name: LOG_PATH
+          value: {{ $.Values.common.logging.path }}
+        - name: SPRING_APPLICATION_NAME
+          value: {{ $serviceConfig.name }}
+        - name: LOGGING_RECOMMENDATION_ENABLED
+          value: {{ $.Values.common.logging.recommendationEnabled | quote }}
+        - name: SERVER_PORT
+          value: {{ $serviceConfig.port | quote }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "eatcloud-apps.fullname" $ }}-config
+        - configMapRef:
+            name: {{ $serviceConfig.name }}-db-config
+        - secretRef:
+            name: {{ $serviceConfig.name }}-secrets
+        volumeMounts:
+        - name: app-logs
+          mountPath: {{ $.Values.common.logging.path }}
+        resources:
+{{ toYaml ($serviceConfig.resources | default $.Values.services.adminService.resources) | indent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: {{ $serviceConfig.port }}
+          initialDelaySeconds: {{ $.Values.common.healthCheck.liveness.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.common.healthCheck.liveness.periodSeconds }}
+          timeoutSeconds: {{ $.Values.common.healthCheck.liveness.timeoutSeconds }}
+          failureThreshold: {{ $.Values.common.healthCheck.liveness.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: {{ $serviceConfig.port }}
+          initialDelaySeconds: {{ $.Values.common.healthCheck.readiness.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.common.healthCheck.readiness.periodSeconds }}
+          timeoutSeconds: {{ $.Values.common.healthCheck.readiness.timeoutSeconds }}
+          failureThreshold: {{ $.Values.common.healthCheck.readiness.failureThreshold }}
+
+      {{- if $.Values.fluentBit.enabled }}
+      # Fluent Bit 사이드카 컨테이너
+      - name: fluent-bit
+        image: fluent/fluent-bit:3.0.4
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 2020
+          name: http-metrics
+        volumeMounts:
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        - name: app-logs
+          mountPath: {{ $.Values.common.logging.path }}
+          readOnly: true
+        - name: fluent-bit-db
+          mountPath: /fluent-bit/tail
+        - name: fluent-bit-logs
+          mountPath: /var/log/fluent-bit
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      {{- end }}
+
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+      {{- if $.Values.fluentBit.enabled }}
+      - name: fluent-bit-db
+        emptyDir: {}
+      - name: fluent-bit-logs
+        emptyDir: {}
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+      {{- end }}
+{{- end }}
+{{- end }}

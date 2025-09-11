@@ -1,0 +1,29 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "kinesis:DescribeStream",
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+                "kinesis:ListStreams"
+            ],
+            "Resource": [
+                "arn:aws:kinesis:ap-northeast-2:536580887516:stream/eatcloud-stateful-logs",
+                "arn:aws:kinesis:ap-northeast-2:536580887516:stream/eatcloud-stateless-logs",
+                "arn:aws:kinesis:ap-northeast-2:536580887516:stream/eatcloud-recommendation-events"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

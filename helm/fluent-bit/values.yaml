@@ -1,0 +1,97 @@
+# Fluent Bit 설정
+fluentBit:
+  name: fluent-bit
+  image:
+    repository: fluent/fluent-bit
+    tag: "3.0.4"
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # 환경별 설정
+  environment: dev
+
+# 배포 방식 설정 (sidecar 또는 daemonset)
+deployment:
+  type: sidecar  # sidecar, daemonset
+  
+  # AWS 설정 (프로덕션용)
+  aws:
+    region: ap-northeast-2
+    enabled: false
+    kinesis:
+      stream: eatcloud-logs
+      
+  # 로컬 개발용 설정
+  local:
+    enabled: true
+    logPath: /var/log/app
+
+# 서비스별 로그 수집 설정
+services:
+  adminService:
+    enabled: true
+    logLevel: INFO
+    
+  customerService:
+    enabled: true
+    logLevel: INFO
+    
+  orderService:
+    enabled: false
+    logLevel: INFO
+    
+  deliveryService:
+    enabled: false
+    logLevel: INFO
+
+# RBAC 설정
+rbac:
+  create: true
+  serviceAccountName: fluent-bit-service-account
+
+# ConfigMap 설정
+config:
+  service: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/app/*.log
+        Parser            json
+        Tag               app.*
+        Refresh_Interval  5
+        
+  outputs: |
+    [OUTPUT]
+        Name  stdout
+        Match *
+        Format json_lines
+    
+    [OUTPUT]
+        Name  file
+        Match *
+        Path /tmp/fluent-bit-logs/
+        File app.log
+        Format json_lines
+        
+  parsers: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L

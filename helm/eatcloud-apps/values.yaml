@@ -1,0 +1,88 @@
+# EatCloud 애플리케이션 설정
+global:
+  environment: dev
+  namespace: dev
+  
+# AWS 설정
+aws:
+  region: ap-northeast-2
+  accountId: "536580887516"
+
+# 이미지 레지스트리 설정
+image:
+  registry: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud
+  pullPolicy: Always
+
+# Fluent Bit 설정
+fluentBit:
+  enabled: true
+  deployment:
+    type: sidecar
+
+# 서비스별 설정
+services:
+  adminService:
+    enabled: true
+    name: admin-service
+    image: admin-service:latest
+    port: 8083
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    
+  customerService:
+    enabled: true
+    name: customer-service
+    image: customer-service:latest
+    port: 8082
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+        
+  orderService:
+    enabled: false
+    name: order-service
+    image: order-service:latest
+    port: 8084
+    replicas: 1
+    
+  deliveryService:
+    enabled: false
+    name: delivery-service
+    image: delivery-service:latest
+    port: 8085
+    replicas: 1
+
+# 공통 설정
+common:
+  configMapName: complete-configmap
+  secretName: app-secrets
+  serviceAccountName: fluent-bit-service-account
+  
+  # 로깅 설정
+  logging:
+    path: /var/log/app
+    recommendationEnabled: true
+    
+  # Health check 설정
+  healthCheck:
+    liveness:
+      initialDelaySeconds: 90
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readiness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3

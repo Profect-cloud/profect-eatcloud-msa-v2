@@ -2,8 +2,8 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# 멀티모듈 빌드 결과 복사
-COPY admin-service/build/libs/admin-service-*.jar app.jar
+# 현재 디렉토리에서 빌드된 JAR 파일 복사
+COPY build/libs/admin-service-*.jar app.jar
 
 EXPOSE 8083
 

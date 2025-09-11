@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: common-config
-  namespace: eatcloud
+  name: complete-configmap
+  namespace: dev
 data:
   # Database Configuration - Service-specific hosts
   # Auth service uses shared eatcloud-db, others use separate DBs

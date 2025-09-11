@@ -1,0 +1,16 @@
+apiVersion: v2
+name: fluent-bit
+description: A Helm chart for Fluent Bit logging in EatCloud MSA
+type: application
+version: 1.0.0
+appVersion: "3.0.4"
+keywords:
+  - logging
+  - fluent-bit
+  - observability
+home: https://fluentbit.io/
+sources:
+  - https://github.com/fluent/fluent-bit
+maintainers:
+  - name: EatCloud Team
+    email: dev@eatcloud.com

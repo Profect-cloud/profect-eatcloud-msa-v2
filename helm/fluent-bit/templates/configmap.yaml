@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: fluent-bit
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+data:
+  fluent-bit.conf: |
+{{ .Values.config.service | indent 4 }}
+{{ .Values.config.inputs | indent 4 }}
+{{ .Values.config.outputs | indent 4 }}
+  
+  parsers.conf: |
+{{ .Values.config.parsers | indent 4 }}

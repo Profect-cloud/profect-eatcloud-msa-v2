@@ -1,0 +1,15 @@
+apiVersion: v2
+name: eatcloud-apps
+description: A Helm chart for EatCloud MSA applications with Fluent Bit sidecar
+type: application
+version: 1.0.0
+appVersion: "latest"
+keywords:
+  - eatcloud
+  - microservices
+  - spring-boot
+  - logging
+home: https://eatcloud.com
+maintainers:
+  - name: EatCloud Team
+    email: dev@eatcloud.com
