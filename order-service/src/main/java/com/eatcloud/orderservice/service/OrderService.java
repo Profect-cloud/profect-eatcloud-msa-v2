@@ -337,8 +337,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
 
-        OrderStatusCode canceledStatus = orderStatusCodeRepository.findByCode("CANCELED")
-                .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: CANCELED"));
+        OrderStatusCode canceledStatus = orderStatusCodeRepository.findByCode("CANCELLED")
+                .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: CANCELLED"));
         order.setOrderStatusCode(canceledStatus);
 
         orderRepository.save(order);
@@ -415,8 +415,6 @@ public class OrderService {
                 .build();
 
         Order savedOrder = orderRepository.save(order);
-
-        // OrderItem은 별도로 저장하지 않음 (orderMenuList가 Order 엔티티에 JSON으로 저장됨)
 
         log.info("Pending order created: orderId={}, orderNumber={}, totalAmount={}, finalAmount={}", 
                 savedOrder.getOrderId(), savedOrder.getOrderNumber(), totalAmount, finalAmount);
