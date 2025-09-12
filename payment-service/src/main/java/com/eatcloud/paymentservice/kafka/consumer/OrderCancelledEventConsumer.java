@@ -1,6 +1,8 @@
-package com.eatcloud.paymentservice.service;
+package com.eatcloud.paymentservice.kafka.consumer;
 
 import com.eatcloud.paymentservice.event.OrderCancelledEvent;
+import com.eatcloud.paymentservice.service.PaymentService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -28,7 +30,6 @@ public class OrderCancelledEventConsumer {
 
         } catch (Exception e) {
             log.error("주문 취소 이벤트 처리 실패: orderId={}", event.getOrderId(), e);
-            // DLQ는 KafkaConfig에서 자동 처리됨
             throw e;
         }
     }

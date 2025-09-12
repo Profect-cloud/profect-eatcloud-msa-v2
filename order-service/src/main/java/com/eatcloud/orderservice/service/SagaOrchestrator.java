@@ -15,6 +15,11 @@ import com.eatcloud.orderservice.event.PaymentRequestCancelEvent;
 import com.eatcloud.orderservice.event.PaymentRequestCancelResponseEvent;
 import com.eatcloud.orderservice.exception.ErrorCode;
 import com.eatcloud.orderservice.exception.OrderException;
+import com.eatcloud.orderservice.kafka.consumer.PaymentRequestCancelResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PaymentRequestResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PointReservationCancelResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PointReservationResponseEventConsumer;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,7 +84,7 @@ public class SagaOrchestrator {
                     .collect(Collectors.toList());
                 log.info("OrderMenuList created: size={}, items={}", orderMenuList.size(), orderMenuList);
                 
-                // Step 3: 메뉴 가격 검증
+                // 메뉴 가격 검증
 
                 log.info("Step 4: Creating order");
                 Order order = orderService.createPendingOrder(
@@ -144,7 +149,7 @@ public class SagaOrchestrator {
                     .sagaId(sagaId)
                     .build();
             
-            kafkaTemplate.send("point.reservation.request", requestEvent);
+            kafkaTemplate.send("point.reservation.request", orderId.toString(), requestEvent);
             log.info("포인트 예약 요청 이벤트 발행: customerId={}, orderId={}, points={}, sagaId={}", 
                     customerId, orderId, points, sagaId);
 
@@ -179,7 +184,7 @@ public class SagaOrchestrator {
                     .sagaId(sagaId)
                     .build();
             
-            kafkaTemplate.send("point.reservation.cancel", cancelEvent);
+            kafkaTemplate.send("point.reservation.cancel", orderId.toString(), cancelEvent);
             log.info("포인트 예약 취소 이벤트 발행: customerId={}, orderId={}, sagaId={}", 
                     customerId, orderId, sagaId);
 
@@ -210,7 +215,7 @@ public class SagaOrchestrator {
                     .sagaId(sagaId)
                     .build();
             
-            kafkaTemplate.send("payment.request", requestEvent);
+            kafkaTemplate.send("payment.request", orderId.toString(), requestEvent);
             log.info("결제 요청 이벤트 발행: orderId={}, customerId={}, amount={}, sagaId={}", 
                     orderId, customerId, amount, sagaId);
 
@@ -244,7 +249,7 @@ public class SagaOrchestrator {
                     .sagaId(sagaId)
                     .build();
             
-            kafkaTemplate.send("payment.request.cancel", cancelEvent);
+            kafkaTemplate.send("payment.request.cancel", orderId.toString(), cancelEvent);
             log.info("결제 요청 취소 이벤트 발행: orderId={}, sagaId={}", orderId, sagaId);
 
             CompletableFuture<PaymentRequestCancelResponseEvent> responseFuture = 

@@ -1,6 +1,8 @@
-package com.eatcloud.customerservice.service;
+package com.eatcloud.customerservice.kafka.consumer;
 
 import com.eatcloud.customerservice.event.OrderCancelledEvent;
+import com.eatcloud.customerservice.service.PointReservationService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;

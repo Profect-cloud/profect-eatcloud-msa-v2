@@ -73,10 +73,8 @@ public class PointReservationService {
             return;
         }
 
-        // 예약된 포인트를 실제로 차감
         customerService.processReservedPoints(reservation.getCustomerId(), reservation.getPoints());
 
-        // 예약 상태를 PROCESSED로 변경
         reservation.process();
         pointReservationRepository.save(reservation);
 

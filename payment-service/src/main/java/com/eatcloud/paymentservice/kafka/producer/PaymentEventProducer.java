@@ -1,4 +1,4 @@
-package com.eatcloud.paymentservice.service;
+package com.eatcloud.paymentservice.kafka.producer;
 
 import com.eatcloud.paymentservice.event.PaymentCompletedEvent;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class PaymentEventProducer {
                 .build();
 
         try {
-            kafkaTemplate.send("payment.completed", event);
+            kafkaTemplate.send("payment.completed", event.getOrderId().toString(), event);
             log.info("PaymentCompletedEvent 발행 완료: orderId={}, paymentId={}", orderId, paymentId);
         } catch (Exception e) {
             log.error("PaymentCompletedEvent 발행 실패: orderId={}, paymentId={}", orderId, paymentId, e);

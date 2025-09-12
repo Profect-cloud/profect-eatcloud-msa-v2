@@ -10,13 +10,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.util.backoff.FixedBackOff;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 @Configuration
+@Slf4j
 public class KafkaConfig {
     
     @Value("${spring.kafka.bootstrap-servers}")
@@ -28,8 +32,7 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        
-        // Producer 안정성 및 재시도 설정
+
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
         configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000);
@@ -45,6 +48,25 @@ public class KafkaConfig {
     }
 
     @Bean
+    public DefaultErrorHandler defaultErrorHandler() {
+        // DLQ 설정: 실패한 메시지를 원본 토픽명.dlt로 전송
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        
+        // 재시도 설정: 3회 재시도, 1초 간격
+        FixedBackOff backOff = new FixedBackOff(1000L, 3L);
+        
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    // 요청 토픽용 ErrorHandler (DLT 있음)
+    @Bean
+    public DefaultErrorHandler requestErrorHandler() {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        FixedBackOff backOff = new FixedBackOff(1000L, 3L);
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -52,8 +74,7 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        
-        // JSON 역직렬화 설정
+
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.paymentservice.event.PaymentRequestEvent");
@@ -65,9 +86,8 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        
-        // 에러 핸들러 설정
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+
+        factory.setCommonErrorHandler(requestErrorHandler()); // 요청 토픽용
         
         return factory;
     }

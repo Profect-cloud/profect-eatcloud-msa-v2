@@ -23,19 +23,14 @@ public class AsyncOrderCompletionService {
     private final OrderStatusCodeRepository orderStatusCodeRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    /**
-     * 결제 완료 후 비동기 후처리 (주문 상태 변경, 포인트 차감)
-     */
     @Transactional
     public void processOrderCompletion(PaymentCompletedEvent event) {
         log.info("결제 완료 후 비동기 처리 시작: orderId={}, pointsUsed={}", 
                 event.getOrderId(), event.getPointsUsed());
 
         try {
-            // 1. 주문 상태를 PAID로 변경
             updateOrderStatusToPaid(event.getOrderId());
-            
-            // 2. 주문에서 포인트 사용 정보 가져오기
+
             Order order = orderRepository.findById(event.getOrderId())
                     .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + event.getOrderId()));
             
@@ -43,7 +38,6 @@ public class AsyncOrderCompletionService {
             log.info("주문에서 포인트 사용 정보 조회: orderId={}, pointsUsed={}", 
                     event.getOrderId(), pointsUsed);
 
-            // 3. 포인트 사용이 있는 경우 포인트 차감 이벤트 발행
             if (pointsUsed != null && pointsUsed > 0) {
                 publishPointDeductionEvent(event.getOrderId(), event.getCustomerId(), pointsUsed);
             } else {
@@ -58,17 +52,12 @@ public class AsyncOrderCompletionService {
         }
     }
 
-
-    /**
-     * 주문 상태를 PAID로 변경
-     */
     private void updateOrderStatusToPaid(UUID orderId) {
         log.info("주문 상태를 PAID로 변경: orderId={}", orderId);
         
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
-        
-        // OrderStatusCode를 조회해서 설정
+
         OrderStatusCode paidStatus = orderStatusCodeRepository.findByCode("PAID")
                 .orElseThrow(() -> new RuntimeException("PAID 상태 코드를 찾을 수 없습니다"));
         
@@ -78,9 +67,6 @@ public class AsyncOrderCompletionService {
         log.info("주문 상태 PAID로 변경 완료: orderId={}", orderId);
     }
 
-    /**
-     * 포인트 차감 이벤트 발행
-     */
     private void publishPointDeductionEvent(UUID orderId, UUID customerId, Integer pointsUsed) {
         log.info("포인트 차감 이벤트 발행: orderId={}, customerId={}, pointsUsed={}", 
                 orderId, customerId, pointsUsed);
@@ -93,7 +79,7 @@ public class AsyncOrderCompletionService {
                     .sagaId(UUID.randomUUID().toString())
                     .build();
 
-            kafkaTemplate.send("point.deduction.request", event);
+            kafkaTemplate.send("point.deduction.request", orderId.toString(), event);
             log.info("포인트 차감 이벤트 발행 완료: orderId={}, customerId={}, pointsUsed={}", 
                     orderId, customerId, pointsUsed);
 

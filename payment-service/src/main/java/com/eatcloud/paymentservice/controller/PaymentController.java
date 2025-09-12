@@ -96,7 +96,6 @@ public class PaymentController {
             @AuthenticationPrincipal Jwt jwt) {
         
         try {
-            // JWT에서 customerId 추출
             UUID customerId = UUID.fromString(jwt.getSubject());
             log.info("결제 요청: customerId={}", customerId);
             

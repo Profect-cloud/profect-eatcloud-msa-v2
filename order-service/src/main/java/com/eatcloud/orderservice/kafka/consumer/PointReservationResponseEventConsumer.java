@@ -1,4 +1,4 @@
-package com.eatcloud.orderservice.service;
+package com.eatcloud.orderservice.kafka.consumer;
 
 import com.eatcloud.orderservice.event.PointReservationResponseEvent;
 import lombok.RequiredArgsConstructor;
@@ -14,15 +14,13 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class PointReservationResponseEventConsumer {
 
-    // Saga ID별로 CompletableFuture를 저장하는 맵
     private final ConcurrentHashMap<String, CompletableFuture<PointReservationResponseEvent>> pendingRequests = new ConcurrentHashMap<>();
 
     @KafkaListener(topics = "point.reservation.response", groupId = "order-service", containerFactory = "pointReservationKafkaListenerContainerFactory")
     public void handlePointReservationResponse(PointReservationResponseEvent event) {
         log.info("PointReservationResponseEvent 수신: orderId={}, customerId={}, sagaId={}, success={}", 
                 event.getOrderId(), event.getCustomerId(), event.getSagaId(), event.isSuccess());
-        
-        // 해당 Saga ID의 CompletableFuture를 완료
+
         CompletableFuture<PointReservationResponseEvent> future = pendingRequests.remove(event.getSagaId());
         if (future != null) {
             future.complete(event);
@@ -32,9 +30,6 @@ public class PointReservationResponseEventConsumer {
         }
     }
 
-    /**
-     * 포인트 예약 요청을 등록하고 응답을 기다림
-     */
     public CompletableFuture<PointReservationResponseEvent> waitForResponse(String sagaId) {
         CompletableFuture<PointReservationResponseEvent> future = new CompletableFuture<>();
         pendingRequests.put(sagaId, future);

@@ -1,6 +1,8 @@
-package com.eatcloud.orderservice.service;
+package com.eatcloud.orderservice.kafka.consumer;
 
 import com.eatcloud.orderservice.event.PaymentCompletedEvent;
+import com.eatcloud.orderservice.service.AsyncOrderCompletionService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,7 +25,7 @@ public class PaymentCompletedEventConsumer {
         } catch (Exception e) {
             log.error("결제 완료 처리 중 오류 발생: orderId={}, paymentId={}", 
                     event.getOrderId(), event.getPaymentId(), e);
-            throw e; // 재시도를 위해 예외를 다시 던짐
+            throw e;
         }
     }
 }

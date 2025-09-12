@@ -1,4 +1,4 @@
-package com.eatcloud.orderservice.service;
+package com.eatcloud.orderservice.kafka.consumer;
 
 import com.eatcloud.orderservice.event.PaymentRequestCancelResponseEvent;
 import lombok.RequiredArgsConstructor;
@@ -14,15 +14,13 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class PaymentRequestCancelResponseEventConsumer {
 
-    // Saga ID별로 CompletableFuture를 저장하는 맵
     private final ConcurrentHashMap<String, CompletableFuture<PaymentRequestCancelResponseEvent>> pendingRequests = new ConcurrentHashMap<>();
 
     @KafkaListener(topics = "payment.request.cancel.response", groupId = "order-service", containerFactory = "paymentRequestCancelKafkaListenerContainerFactory")
     public void handlePaymentRequestCancelResponse(PaymentRequestCancelResponseEvent event) {
         log.info("PaymentRequestCancelResponseEvent 수신: orderId={}, sagaId={}, success={}", 
                 event.getOrderId(), event.getSagaId(), event.isSuccess());
-        
-        // 해당 Saga ID의 CompletableFuture를 완료
+
         CompletableFuture<PaymentRequestCancelResponseEvent> future = pendingRequests.remove(event.getSagaId());
         if (future != null) {
             future.complete(event);
@@ -32,9 +30,6 @@ public class PaymentRequestCancelResponseEventConsumer {
         }
     }
 
-    /**
-     * 결제 요청 취소 응답을 기다림
-     */
     public CompletableFuture<PaymentRequestCancelResponseEvent> waitForResponse(String sagaId) {
         CompletableFuture<PaymentRequestCancelResponseEvent> future = new CompletableFuture<>();
         pendingRequests.put(sagaId, future);

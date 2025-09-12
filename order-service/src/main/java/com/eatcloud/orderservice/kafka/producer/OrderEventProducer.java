@@ -1,4 +1,4 @@
-package com.eatcloud.orderservice.service;
+package com.eatcloud.orderservice.kafka.producer;
 
 import com.eatcloud.orderservice.event.OrderCreatedEvent;
 import com.eatcloud.orderservice.event.OrderCancelledEvent;
@@ -28,7 +28,6 @@ public class OrderEventProducer {
 				.whenComplete((result, throwable) -> {
 					if (throwable != null) {
 						log.error("주문 생성 이벤트 발행 실패 - DLQ 처리 필요: orderId={}", event.getOrderId(), throwable);
-						// Producer 실패는 Kafka 내부 재시도 후 최종 실패 시 여기 도달
 						sendToEventDLQ("order.created", event.getOrderId().toString(), event, throwable);
 					} else {
 						log.info("주문 생성 이벤트 발행 성공: orderId={}, partition={}, offset={}",
@@ -53,9 +52,6 @@ public class OrderEventProducer {
 				});
 	}
 
-	/**
-	 * 결제 완료 이벤트 발행 (안전한 비동기 후처리 시작)
-	 */
 	public CompletableFuture<SendResult<String, Object>> publishPaymentCompleted(PaymentCompletedEvent event) {
 		log.info("결제 완료 이벤트 발행: orderId={}, paymentId={}, customerId={}", 
 				event.getOrderId(), event.getPaymentId(), event.getCustomerId());
@@ -74,9 +70,6 @@ public class OrderEventProducer {
 				});
 	}
 
-	/**
-	 * 이벤트 발행 실패 시 DLQ로 전송
-	 */
 	private void sendToEventDLQ(String originalTopic, String key, Object event, Throwable error) {
 		try {
 			String dlqTopic = originalTopic + ".producer.DLQ";

@@ -373,9 +373,6 @@ public class CartService {
         }
     }
 
-    /**
-     * 트랜잭션 없이 데이터베이스 동기화 (스케줄러에서 사용)
-     */
     protected void syncToDatabaseWithTransaction(UUID customerId, List<CartItem> cartItems) {
         try {
             if (cartItems.isEmpty()) {
@@ -507,19 +504,16 @@ public class CartService {
             batch.forEach((customerId, cartItems) -> {
                 TransactionStatus transaction = null;
                 try {
-                    // 수동으로 트랜잭션 시작
                     DefaultTransactionDefinition def = new DefaultTransactionDefinition();
                     def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                     transaction = transactionManager.getTransaction(def);
                     
                     syncToDatabaseWithTransaction(customerId, cartItems);
                     
-                    // 트랜잭션 커밋
                     transactionManager.commit(transaction);
                     log.debug("Batch DB sync completed for customer: {}", customerId);
 
                 } catch (Exception e) {
-                    // 트랜잭션 롤백
                     if (transaction != null) {
                         transactionManager.rollback(transaction);
                     }

@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.util.backoff.FixedBackOff;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
@@ -31,7 +33,6 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         
-        // Producer 안정성 및 재시도 설정 개선
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
         configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000); // 재시도 간격
@@ -50,6 +51,34 @@ public class KafkaConfig {
     }
 
     @Bean
+    public DefaultErrorHandler defaultErrorHandler() {
+        // DLQ 설정: 실패한 메시지를 원본 토픽명.dlt로 전송
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        
+        // 재시도 설정: 3회 재시도, 1초 간격
+        FixedBackOff backOff = new FixedBackOff(1000L, 3L);
+        
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    // 응답 토픽용 ErrorHandler (DLT 없음)
+    @Bean
+    public DefaultErrorHandler responseErrorHandler() {
+        return new DefaultErrorHandler((record, exception) -> {
+            log.error("응답 이벤트 처리 실패 - 스킵: topic={}, partition={}, offset={}", 
+                     record.topic(), record.partition(), record.offset(), exception);
+        });
+    }
+
+    // 요청 토픽용 ErrorHandler (DLT 있음)
+    @Bean
+    public DefaultErrorHandler requestErrorHandler() {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        FixedBackOff backOff = new FixedBackOff(1000L, 3L);
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -58,7 +87,6 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         
-        // JSON 역직렬화 설정
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PaymentCompletedEvent");
@@ -70,9 +98,8 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        
-        // 에러 핸들러 설정
-        factory.setCommonErrorHandler(new org.springframework.kafka.listener.DefaultErrorHandler());
+
+        factory.setCommonErrorHandler(defaultErrorHandler());
         
         return factory;
     }
@@ -85,8 +112,7 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        
-        // JSON 역직렬화 설정
+
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PointReservationResponseEvent");
@@ -98,7 +124,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> pointReservationKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointReservationConsumerFactory());
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
         return factory;
     }
 
@@ -110,8 +136,7 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        
-        // JSON 역직렬화 설정
+
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PaymentRequestResponseEvent");
@@ -123,7 +148,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> paymentRequestKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentRequestConsumerFactory());
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
         return factory;
     }
 
@@ -136,7 +161,6 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         
-        // JSON 역직렬화 설정
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PointReservationCancelResponseEvent");
@@ -148,7 +172,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> pointReservationCancelKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointReservationCancelConsumerFactory());
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
         return factory;
     }
 
@@ -161,7 +185,6 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         
-        // JSON 역직렬화 설정
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PaymentRequestCancelResponseEvent");
@@ -173,7 +196,31 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> paymentRequestCancelKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentRequestCancelConsumerFactory());
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, Object> pointDeductionConsumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "order-service-deduction");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.eatcloud.orderservice.event.PointDeductionResponseEvent");
+        
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, Object> pointDeductionKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(pointDeductionConsumerFactory());
+        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
         return factory;
     }
 

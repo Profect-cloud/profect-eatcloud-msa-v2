@@ -5,17 +5,15 @@ import com.eatcloud.paymentservice.entity.PaymentMethodCode;
 import com.eatcloud.paymentservice.entity.PaymentRequest;
 import com.eatcloud.paymentservice.entity.PaymentStatus;
 import com.eatcloud.paymentservice.entity.PaymentRequestStatus;
+import com.eatcloud.paymentservice.kafka.producer.PaymentEventProducer;
 import com.eatcloud.paymentservice.repository.PaymentMethodCodeRepository;
 import com.eatcloud.paymentservice.repository.PaymentRepository;
 import com.eatcloud.paymentservice.repository.PaymentRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -31,7 +29,6 @@ public class PaymentService {
     private final PaymentRequestRepository paymentRequestRepository;
     private final TossPaymentService tossPaymentService;
     private final PaymentMethodCodeRepository paymentMethodCodeRepository;
-    private final RestTemplate restTemplate;
     private final PaymentEventProducer paymentEventProducer;
     
     private static final long PAYMENT_TIMEOUT_MINUTES = 5;
@@ -88,16 +85,15 @@ public class PaymentService {
         
         paymentRequest.updateStatus(PaymentRequestStatus.COMPLETED);
         paymentRequestRepository.save(paymentRequest);
-        
-        // Kafka 이벤트로 결제 완료 알림 (비동기)
+
         try {
             paymentEventProducer.publishPaymentCompleted(
                 savedPayment.getOrderId(),
                 savedPayment.getCustomerId(),
                 savedPayment.getPaymentId(),
-                savedPayment.getTotalAmount(), // totalAmount (총 주문 금액)
-                savedPayment.getTotalAmount(), // amount (실제 결제 금액은 주문 서비스에서 계산)
-                0, // pointsUsed (주문 서비스에서 조회)
+                savedPayment.getTotalAmount(),
+                savedPayment.getTotalAmount(),
+                0,
                 savedPayment.getPaymentMethod().toString(),
                 savedPayment.getPgTransactionId()
             );
@@ -106,7 +102,6 @@ public class PaymentService {
         } catch (Exception e) {
             log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            // 이벤트 발행 실패는 결제 완료를 막지 않음
         }
         
         log.info("결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
@@ -149,15 +144,14 @@ public class PaymentService {
             paymentRequestRepository.save(paymentRequest);
         }
 
-        // Kafka 이벤트로 결제 완료 알림 (비동기)
         try {
             paymentEventProducer.publishPaymentCompleted(
                 savedPayment.getOrderId(),
                 savedPayment.getCustomerId(),
                 savedPayment.getPaymentId(),
-                savedPayment.getTotalAmount(), // totalAmount (총 주문 금액)
-                savedPayment.getTotalAmount(), // amount (실제 결제 금액은 주문 서비스에서 계산)
-                0, // pointsUsed (주문 서비스에서 조회)
+                savedPayment.getTotalAmount(),
+                savedPayment.getTotalAmount(),
+                0,
                 savedPayment.getPaymentMethod().toString(),
                 savedPayment.getPgTransactionId()
             );
@@ -166,7 +160,6 @@ public class PaymentService {
         } catch (Exception e) {
             log.error("[MOCK] 결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            // 이벤트 발행 실패는 결제 완료를 막지 않음
         }
 
         log.info("[MOCK] 결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);

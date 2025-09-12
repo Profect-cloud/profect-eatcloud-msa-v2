@@ -19,9 +19,6 @@ public class PointController {
 
     private final PointReservationService pointReservationService;
 
-    /**
-     * 포인트 예약 생성 (오케스트레이션용)
-     */
     @PostMapping("/reserve")
     public ResponseEntity<Map<String, Object>> reservePoints(
             @PathVariable UUID customerId,
@@ -33,13 +30,11 @@ public class PointController {
             log.info("포인트 예약 요청: customerId={}, orderId={}, points={}, serviceName={}", 
                     customerId, request.getOrderId(), request.getPoints(), serviceName);
 
-            // 서비스 간 호출 검증
             if (!"order-service".equals(serviceName)) {
                 log.warn("Unauthorized point reservation attempt from: {}", serviceName);
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized service"));
             }
             
-            // 고객 ID 일치 검증 (추가 보안)
             if (headerCustomerId != null && !customerId.toString().equals(headerCustomerId)) {
                 log.warn("Customer ID mismatch: path={}, header={}", customerId, headerCustomerId);
                 return ResponseEntity.status(403).body(Map.of("error", "Customer ID mismatch"));
@@ -66,9 +61,6 @@ public class PointController {
         }
     }
 
-    /**
-     * 포인트 예약 처리 (실제 차감) - 오케스트레이션용
-     */
     @PostMapping("/process-reservation")
     public ResponseEntity<Map<String, Object>> processReservation(
             @PathVariable UUID customerId,
@@ -79,7 +71,6 @@ public class PointController {
             log.info("포인트 예약 처리 요청: customerId={}, orderId={}, serviceName={}", 
                     customerId, request.getOrderId(), serviceName);
 
-            // 서비스 간 호출 검증
             if (!"order-service".equals(serviceName)) {
                 log.warn("Unauthorized point processing attempt from: {}", serviceName);
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized service"));
@@ -103,9 +94,6 @@ public class PointController {
         }
     }
 
-    /**
-     * 포인트 예약 취소 (보상 로직용)
-     */
     @PostMapping("/cancel-reservation")
     public ResponseEntity<Map<String, Object>> cancelReservation(
             @PathVariable UUID customerId,
@@ -116,7 +104,6 @@ public class PointController {
             log.info("포인트 예약 취소 요청: customerId={}, orderId={}, serviceName={}", 
                     customerId, request.getOrderId(), serviceName);
 
-            // 서비스 간 호출 검증
             if (!"order-service".equals(serviceName)) {
                 log.warn("Unauthorized point cancellation attempt from: {}", serviceName);
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized service"));
