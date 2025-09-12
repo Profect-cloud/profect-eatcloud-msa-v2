@@ -1,11 +1,11 @@
-{{- if not .Values.rollout.enabled }}
-
-apiVersion: apps/v1
-kind: Deployment
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: {{ include "app.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
   selector:
     matchLabels: { app: {{ include "app.fullname" . }} }
   template:
@@ -20,6 +20,14 @@ spec:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - containerPort: {{ .Values.service.port }}
+          ports: [{ containerPort: {{ .Values.service.port }} }]
+  strategy:
+    canary:
+      canaryService: {{ include "app.fullname" . }}-canary
+      stableService: {{ include "app.fullname" . }}-stable
+      trafficRouting:
+        nginx:
+          stableIngress: {{ include "app.fullname" . }}   # 아래 Ingress 이름과 동일
+      steps:
+      {{- toYaml .Values.rollout.steps | nindent 6 }}
 {{- end }}
