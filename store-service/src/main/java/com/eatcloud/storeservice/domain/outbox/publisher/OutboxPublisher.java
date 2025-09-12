@@ -27,7 +27,7 @@ public class OutboxPublisher {
     @Value("${inventory.outbox.publisher.batch-size:200}")
     private int batchSize;
 
-    @Value("${inventory.outbox.publisher.webhook-url:http://localhost:18080/mock}")
+    @Value("${inventory.outbox.publisher.webhook-url:http://localhost:8080/mock}")
     private String webhookUrl;
 
     private final WebClient webClient = WebClient.builder().build();

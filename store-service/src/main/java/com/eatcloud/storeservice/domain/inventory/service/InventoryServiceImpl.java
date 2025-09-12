@@ -1,11 +1,17 @@
 package com.eatcloud.storeservice.domain.inventory.service;
 
+import ch.qos.logback.classic.Logger;
+import com.eatcloud.storeservice.domain.inventory.StockEvents;
 import com.eatcloud.storeservice.domain.inventory.entity.InventoryReservation;
+import com.eatcloud.storeservice.domain.inventory.hotpath.HotPathLuaService;
 import com.eatcloud.storeservice.domain.inventory.repository.InventoryReservationRepository;
 import com.eatcloud.storeservice.domain.inventory.repository.InventoryStockRepository;
 import com.eatcloud.storeservice.domain.outbox.service.OutboxAppender;
 import com.eatcloud.storeservice.support.lock.RedisLockExecutor;
+import com.esotericsoftware.minlog.Log;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,8 +20,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
+import com.eatcloud.storeservice.domain.inventory.hot.HotKeyDecider;
+import lombok.extern.slf4j.Slf4j;
+
 import static com.eatcloud.storeservice.support.lock.RedisLockExecutor.LockTimeoutException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InventoryServiceImpl implements InventoryService {
@@ -25,6 +35,10 @@ public class InventoryServiceImpl implements InventoryService {
     private final OutboxAppender outbox;
     private final RedisLockExecutor locks;
 
+    // 🔥 Phase B: 핫키 전용 경로 의존성 주입
+    private final HotKeyDecider hotKeyDecider;
+    private final HotPathLuaService hotPath;
+
     private static final String EVT_RESERVED = "stock.reserved";
     private static final String EVT_RELEASED = "stock.released";
     private static final String EVT_ADJUSTED = "stock.adjusted";
@@ -32,11 +46,22 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void reserve(UUID orderId, UUID orderLineId, UUID menuId, int qty) {
+        if (hotKeyDecider.isHot(menuId)) {
+            log.debug("[HOT] menuId={} flagged as hot, trying Lua path...", menuId);
+            try {
+                hotPath.reserveViaLua(orderId, orderLineId, menuId, qty);
+                return;
+            } catch (UnsupportedOperationException e) {
+                log.debug("[HOT] Lua not implemented. Fallback to Phase A. menuId={}", menuId);
+            } catch (Exception e) {
+                log.warn("[HOT] Lua path failed ({}). Fallback to Phase A. menuId={}", e.getMessage(), menuId);
+            }
+        }
+
         locks.withMenuLock(menuId.toString(), () -> {
-            // 멱등: 이미 존재하면 no-op
             if (resRepo.findByOrderLineId(orderLineId).isPresent()) return null;
 
-            int updated = stockRepo.reserve(menuId, qty); // CAS
+            int updated = stockRepo.reserve(menuId, qty);
             if (updated == 0) throw new InsufficientStockException();
 
             InventoryReservation r = InventoryReservation.builder()
@@ -46,14 +71,12 @@ public class InventoryServiceImpl implements InventoryService {
                     .orderLineId(orderLineId)
                     .qty(qty)
                     .status("PENDING")
-                    .expiresAt(LocalDateTime.now().plus(10, ChronoUnit.MINUTES))
+                    .expiresAt(LocalDateTime.now().plusMinutes(10))
                     .createdAt(LocalDateTime.now())
                     .build();
             resRepo.save(r);
 
-            // 로그(p_stock_logs)도 여기서 append (생략)
-
-            outbox.append(EVT_RESERVED, menuId, Map.of(
+            outbox.append(StockEvents.RESERVED, menuId, Map.of(
                     "menuId", menuId, "orderId", orderId, "orderLineId", orderLineId,
                     "qty", qty, "occurredAt", LocalDateTime.now(), "eventVersion", 1
             ));
@@ -64,28 +87,18 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void confirm(UUID orderLineId) {
-        // 1) 예약 조회
         InventoryReservation r = resRepo.findByOrderLineId(orderLineId)
                 .orElseThrow(() -> new IllegalArgumentException("NO_RESERVATION"));
-
-        // 멱등: 이미 처리(확정/취소)면 아무 것도 하지 않음
         if (!"PENDING".equals(r.getStatus())) return;
 
-        // 2) 동일 메뉴에 대해 락을 잡아 직렬화
         locks.withMenuLock(r.getMenuId().toString(), () -> {
-            // 3) reserved_qty에서 차감 (available은 예약 때 이미 감소함)
             int u = stockRepo.consume(r.getMenuId(), r.getQty());
-            if (u == 0) {
-                // reserved 부족(수동 보정 등) 시 실패 처리
-                throw new IllegalStateException("RESERVED_UNDERFLOW");
-            }
+            if (u == 0) throw new IllegalStateException("RESERVED_UNDERFLOW");
 
-            // 4) 예약 상태 갱신
             r.setStatus("CONFIRMED");
             resRepo.save(r);
 
-            // 5) 아웃박스 발행
-            outbox.append("stock.confirmed", r.getMenuId(), Map.of(
+            outbox.append(StockEvents.CONFIRMED, r.getMenuId(), Map.of(
                     "menuId", r.getMenuId(),
                     "orderId", r.getOrderId(),
                     "orderLineId", r.getOrderLineId(),
@@ -102,19 +115,23 @@ public class InventoryServiceImpl implements InventoryService {
     public void cancel(UUID orderLineId, String reason) {
         InventoryReservation r = resRepo.findByOrderLineId(orderLineId)
                 .orElseThrow(() -> new IllegalArgumentException("NO_RESERVATION"));
-        if (!"PENDING".equals(r.getStatus())) return; // 멱등
+        if (!"PENDING".equals(r.getStatus())) return;
 
-        // (핫키면) 락으로 직렬화
         locks.withMenuLock(r.getMenuId().toString(), () -> {
             r.setStatus("CANCELED");
             r.setReason(reason);
             resRepo.save(r);
 
-            stockRepo.release(r.getMenuId(), r.getQty()); // CAS 복구
+            stockRepo.release(r.getMenuId(), r.getQty());
 
-            outbox.append(EVT_RELEASED, r.getMenuId(), Map.of(
-                    "menuId", r.getMenuId(), "orderId", r.getOrderId(), "orderLineId", r.getOrderLineId(),
-                    "qty", r.getQty(), "reason", reason, "occurredAt", LocalDateTime.now(), "eventVersion", 1
+            outbox.append(StockEvents.RELEASED, r.getMenuId(), Map.of(
+                    "menuId", r.getMenuId(),
+                    "orderId", r.getOrderId(),
+                    "orderLineId", r.getOrderLineId(),
+                    "qty", r.getQty(),
+                    "reason", reason,
+                    "occurredAt", LocalDateTime.now(),
+                    "eventVersion", 1
             ));
             return null;
         });
@@ -126,7 +143,7 @@ public class InventoryServiceImpl implements InventoryService {
         locks.withMenuLock(menuId.toString(), () -> {
             int u = stockRepo.adjust(menuId, delta);
             if (u == 0) throw new IllegalStateException("ADJUST_FAILED");
-            outbox.append(EVT_ADJUSTED, menuId, Map.of(
+            outbox.append(StockEvents.ADJUSTED, menuId, Map.of(
                     "menuId", menuId, "delta", delta, "occurredAt", LocalDateTime.now(), "eventVersion", 1
             ));
             return null;
@@ -135,4 +152,5 @@ public class InventoryServiceImpl implements InventoryService {
 
     public static class InsufficientStockException extends RuntimeException {}
     public static class AlreadyProcessedException extends RuntimeException {}
+
 }

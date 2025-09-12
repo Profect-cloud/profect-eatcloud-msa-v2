@@ -1,10 +1,10 @@
 package com.eatcloud.storeservice.domain.outbox.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,10 +23,9 @@ public class Outbox {
     @Column(name = "aggregate_id", nullable = false)
     private UUID aggregateId;
 
-    // 🔑 핵심: 하이버네이트에게 JSON이라고 알려주기
-    @JdbcTypeCode(SqlTypes.JSON)
+    @Type(JsonBinaryType.class)                   // 🔴 jsonb 매핑
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
-    private JsonNode payload;  // 또는 Map<String,Object>
+    private JsonNode payload;                     // 🔴 String → JsonNode 로 변경
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

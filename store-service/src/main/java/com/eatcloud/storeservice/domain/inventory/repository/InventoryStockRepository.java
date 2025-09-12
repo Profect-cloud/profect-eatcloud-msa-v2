@@ -43,13 +43,12 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
     int adjust(@Param("menuId") UUID menuId, @Param("delta") int delta);
 
     @Modifying
-    @Query("""
-  UPDATE InventoryStock s
-     SET s.reservedQty = s.reservedQty - :qty,
-         s.updatedAt   = now()
-   WHERE s.menuId = :menuId
-     AND s.reservedQty >= :qty
-""")
+    @Query(value = """
+        UPDATE inventory_stock
+        SET reserved_qty = reserved_qty - :qty
+        WHERE menu_id = :menuId
+          AND reserved_qty >= :qty
+        """, nativeQuery = true)
     int consume(@Param("menuId") UUID menuId, @Param("qty") int qty);
 
 }
