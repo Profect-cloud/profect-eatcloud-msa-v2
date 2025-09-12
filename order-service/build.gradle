@@ -40,6 +40,10 @@ dependencies {
 	implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+	
+	// Spring Retry for REST API retry logic
+	implementation 'org.springframework.retry:spring-retry'
+	implementation 'org.springframework:spring-aspects'
 
 	runtimeOnly 'org.postgresql:postgresql'
 

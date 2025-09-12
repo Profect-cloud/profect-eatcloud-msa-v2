@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.eatcloud.orderservice.entity.Order;
+import com.eatcloud.orderservice.kafka.producer.OrderEventProducer;
+import com.eatcloud.orderservice.repository.OrderItemRepository;
 import com.eatcloud.orderservice.repository.OrderRepository;
 import com.eatcloud.orderservice.dto.OrderMenu;
 import com.eatcloud.orderservice.entity.OrderStatusCode;
@@ -18,12 +20,14 @@ import org.springframework.context.annotation.Lazy;
 import com.eatcloud.orderservice.dto.CartItem;
 import com.eatcloud.orderservice.dto.request.CreateOrderRequest;
 import com.eatcloud.orderservice.dto.response.CreateOrderResponse;
+import com.eatcloud.orderservice.event.PaymentCompletedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,7 +39,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderStatusCodeRepository orderStatusCodeRepository;
     private final OrderTypeCodeRepository orderTypeCodeRepository;
-    private final ExternalApiService externalApiService;
     private final DistributedLockService distributedLockService;
     private final OrderEventProducer orderEventProducer;
     @Lazy
@@ -44,6 +47,9 @@ public class OrderService {
     private CartService cartService;
 
     public CreateOrderResponse createOrderFromCartSimple(UUID customerId, CreateOrderRequest request, String bearerToken) {
+        log.info("=== createOrderFromCartSimple called ===");
+        log.info("customerId: {}, storeId: {}, bearerToken: {}", customerId, request.getStoreId(), bearerToken != null ? "present" : "null");
+        
         String lockKey = "order:create:" + customerId;
         
         try {
@@ -56,7 +62,9 @@ public class OrderService {
                     log.info("Starting order creation for customer: {}", customerId);
 
                     List<CartItem> cartItems = cartService.getCart(customerId);
+                    log.info("Cart items retrieved: count={}, items={}", cartItems.size(), cartItems);
                     if (cartItems.isEmpty()) {
+                        log.warn("Cart is empty for customer: {}", customerId);
                         throw new OrderException(ErrorCode.EMPTY_CART);
                     }
 
@@ -68,6 +76,8 @@ public class OrderService {
                             .price(item.getPrice())
                             .build())
                         .collect(Collectors.toList());
+                    
+                    log.info("OrderMenuList created: size={}, items={}", orderMenuList.size(), orderMenuList);
 
                     Order order = createPendingOrder(
                         customerId,
@@ -75,8 +85,7 @@ public class OrderService {
                         orderMenuList,
                         request.getOrderType(),
                         request.getUsePoints(),
-                        request.getPointsToUse(),
-                        bearerToken
+                        request.getPointsToUse()
                     );
 
                     try {
@@ -123,6 +132,7 @@ public class OrderService {
             );
         } catch (Exception e) {
             log.error("Order creation failed for customer: {}", customerId, e);
+            log.error("Exception type: {}, message: {}", e.getClass().getSimpleName(), e.getMessage());
 
             if (e.getMessage() != null && (
                 e.getMessage().contains("포인트가 부족합니다") ||
@@ -142,7 +152,11 @@ public class OrderService {
     }
 
     public Order createPendingOrder(UUID customerId, UUID storeId, List<OrderMenu> orderMenuList, String orderType,
-                                   Boolean usePoints, Integer pointsToUse, String bearerToken) {
+                                   Boolean usePoints, Integer pointsToUse) {
+        log.info("=== createPendingOrder called ===");
+        log.info("customerId: {}, storeId: {}, orderMenuList size: {}", customerId, storeId, orderMenuList != null ? orderMenuList.size() : "null");
+        log.info("orderMenuList: {}", orderMenuList);
+        
         String orderNumber = generateOrderNumber();
 
         OrderStatusCode statusCode = orderStatusCodeRepository.findByCode("PENDING")
@@ -151,20 +165,7 @@ public class OrderService {
         OrderTypeCode typeCode = orderTypeCodeRepository.findByCode(orderType)
                 .orElseThrow(() -> new RuntimeException("주문 타입 코드를 찾을 수 없습니다: " + orderType));
 
-        for (OrderMenu orderMenu : orderMenuList) {
-            try {
-                Integer menuPrice = externalApiService.getMenuPrice(orderMenu.getMenuId());
-                if (menuPrice != null && menuPrice > 0) {
-                    orderMenu.setPrice(menuPrice);
-                } else {
-                    log.warn("Menu price is null/invalid for menuId: {}, keep cart price: {}",
-                            orderMenu.getMenuId(), orderMenu.getPrice());
-                }
-            } catch (Exception e) {
-                log.warn("Store-service unavailable. Fallback to cart price for menuId: {}. reason={}",
-                        orderMenu.getMenuId(), e.getMessage());
-            }
-        }
+        log.info("Using cart prices for order creation. Menu count: {}", orderMenuList.size());
 
         Integer totalPrice = calculateTotalAmount(orderMenuList);
 
@@ -176,37 +177,35 @@ public class OrderService {
         }
 
         if (usePoints && pointsToUse > 0) {
-            try {
-                Integer customerPoints = externalApiService.getCustomerPoints(customerId, bearerToken);
-                
-                if (customerPoints == null) {
-                    throw new RuntimeException("사용자 포인트를 조회할 수 없습니다. 잠시 후 다시 시도해주세요.");
-                }
-                
-                if (pointsToUse > customerPoints) {
-                    throw new RuntimeException(
-                        String.format("포인트가 부족합니다. 보유 포인트: %d원, 사용하려는 포인트: %d원", 
-                                    customerPoints, pointsToUse)
-                    );
-                }
-                
-                if (pointsToUse > totalPrice) {
-                    throw new RuntimeException(
-                        String.format("포인트는 주문 총액을 초과할 수 없습니다. 주문 총액: %d원, 사용하려는 포인트: %d원", 
-                                    totalPrice, pointsToUse)
-                    );
-                }
-                
-                log.info("포인트 사용 검증 통과: customerId={}, 보유포인트={}, 사용포인트={}, 주문총액={}", 
-                         customerId, customerPoints, pointsToUse, totalPrice);
-                         
-            } catch (Exception e) {
-                log.error("포인트 검증 실패: customerId={}, pointsToUse={}", customerId, pointsToUse, e);
-                throw new RuntimeException("포인트 검증에 실패했습니다: " + e.getMessage());
+            log.info("포인트 사용 예정: customerId={}, pointsToUse={}, totalPrice={}", 
+                    customerId, pointsToUse, totalPrice);
+
+            if (pointsToUse > totalPrice) {
+                throw new RuntimeException(
+                    String.format("포인트는 주문 총액을 초과할 수 없습니다. 주문 총액: %d원, 사용하려는 포인트: %d원", 
+                                totalPrice, pointsToUse)
+                );
             }
         }
 
         Integer finalPaymentAmount = Math.max(totalPrice - pointsToUse, 0);
+
+        if (orderMenuList == null) {
+            orderMenuList = new ArrayList<>();
+            log.warn("orderMenuList was null, initializing with empty list");
+        }
+
+        log.info("Creating Order with orderMenuList: size={}, items={}", 
+                orderMenuList.size(), orderMenuList);
+
+        if (orderMenuList.isEmpty()) {
+            log.warn("orderMenuList is empty! This will cause database constraint violation.");
+        }
+
+        if (orderMenuList == null) {
+            log.error("orderMenuList is null! This should not happen.");
+            throw new RuntimeException("orderMenuList cannot be null");
+        }
 
         Order order = Order.builder()
                 .orderNumber(orderNumber)
@@ -221,7 +220,13 @@ public class OrderService {
                 .finalPaymentAmount(finalPaymentAmount)
                 .build();
 
-        return orderRepository.save(order);
+        log.info("Order entity created: orderId={}, orderMenuList size={}", order.getOrderId(), order.getOrderMenuList() != null ? order.getOrderMenuList().size() : "null");
+        log.info("Order entity orderMenuList: {}", order.getOrderMenuList());
+
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order saved to database: orderId={}, orderMenuList size={}", savedOrder.getOrderId(), savedOrder.getOrderMenuList() != null ? savedOrder.getOrderMenuList().size() : "null");
+        
+        return savedOrder;
     }
 
     @Transactional(readOnly = true)
@@ -254,9 +259,27 @@ public class OrderService {
 
         order.setPaymentId(paymentId);
         order.setOrderStatusCode(paidStatus);
-        orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
 
         log.info("주문 결제 완료 처리: orderId={}, paymentId={}", orderId, paymentId);
+
+        try {
+            PaymentCompletedEvent event = PaymentCompletedEvent.builder()
+                    .orderId(savedOrder.getOrderId())
+                    .paymentId(paymentId)
+                    .customerId(savedOrder.getCustomerId())
+                    .amount(savedOrder.getFinalPaymentAmount())
+                    .completedAt(java.time.LocalDateTime.now())
+                    .pointsUsed(savedOrder.getPointsToUse() != null ? savedOrder.getPointsToUse() : 0)
+                    .build();
+
+            orderEventProducer.publishPaymentCompleted(event);
+            log.info("결제 완료 이벤트 발행 완료: orderId={}, paymentId={}", orderId, paymentId);
+
+        } catch (Exception eventException) {
+            log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
+                     orderId, paymentId, eventException);
+        }
     }
 
     public void failPayment(UUID orderId, String failureReason) {
@@ -286,13 +309,12 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
 
-        OrderStatusCode canceledStatus = orderStatusCodeRepository.findByCode("CANCELED")
-                .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: CANCELED"));
+        OrderStatusCode canceledStatus = orderStatusCodeRepository.findByCode("CANCELLED")
+                .orElseThrow(() -> new RuntimeException("주문 상태 코드를 찾을 수 없습니다: CANCELLED"));
         order.setOrderStatusCode(canceledStatus);
 
         orderRepository.save(order);
 
-        // 주문 취소 이벤트 발행
         try {
             com.eatcloud.orderservice.event.OrderCancelledEvent event =
                     com.eatcloud.orderservice.event.OrderCancelledEvent.builder()
@@ -352,5 +374,8 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 상태 코드입니다."));
 
         order.setOrderStatusCode(statusCodeEntity);
+        orderRepository.save(order);
+
+        log.info("주문 상태 업데이트 완료: orderId={}, newStatus={}", orderId, statusCode);
     }
 }

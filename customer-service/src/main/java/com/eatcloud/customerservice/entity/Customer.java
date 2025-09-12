@@ -55,45 +55,12 @@ public class Customer extends BaseTimeEntity {
 	@Builder.Default
 	private Integer points = 0;
 
+	@Column(name = "reserved_points")
+	@Builder.Default
+	private Integer reservedPoints = 0;
+
 	@OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
 	@Builder.Default
 	private List<Address> addresses = new ArrayList<>();
 
-	public void reservePoints(Integer pointsToReserve) {
-		if (pointsToReserve == null || pointsToReserve <= 0) {
-			throw new IllegalArgumentException("예약할 포인트는 0보다 커야 합니다.");
-		}
-		
-		if (this.points < pointsToReserve) {
-			throw new IllegalStateException("보유 포인트가 부족합니다. 보유: " + this.points + ", 필요: " + pointsToReserve);
-		}
-		
-		this.points -= pointsToReserve;
-	}
-	
-	public void deductReservedPoints(Integer pointsToDeduct) {
-		if (pointsToDeduct == null || pointsToDeduct <= 0) {
-			throw new IllegalArgumentException("차감할 포인트는 0보다 커야 합니다.");
-		}
-	}
-	
-	public void addPoints(Integer pointsToAdd) {
-		if (pointsToAdd == null || pointsToAdd <= 0) {
-			throw new IllegalArgumentException("추가할 포인트는 0보다 커야 합니다.");
-		}
-		
-		this.points += pointsToAdd;
-	}
-	
-	public void refundReservedPoints(Integer pointsToRefund) {
-		if (pointsToRefund == null || pointsToRefund <= 0) {
-			throw new IllegalArgumentException("환불할 포인트는 0보다 커야 합니다.");
-		}
-		
-		this.points += pointsToRefund;
-	}
-	
-	public Integer getTotalPoints() {
-		return this.points;
-	}
 }

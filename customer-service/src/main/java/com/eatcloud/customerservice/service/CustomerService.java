@@ -13,9 +13,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.eatcloud.customerservice.dto.request.ChargePointsRequestDto;
 import com.eatcloud.customerservice.dto.request.ChangePasswordRequestDto;
 import com.eatcloud.customerservice.dto.request.CustomerProfileUpdateRequestDto;
 import com.eatcloud.customerservice.dto.request.CustomerWithdrawRequestDto;
+import com.eatcloud.customerservice.dto.response.ChargePointsResponseDto;
 import com.eatcloud.customerservice.dto.response.CustomerProfileResponseDto;
 import com.eatcloud.customerservice.entity.Customer;
 import com.eatcloud.customerservice.error.CustomerErrorCode;
@@ -55,9 +57,6 @@ public class CustomerService {
 		return CustomerProfileResponseDto.from(customer);
 	}
 
-	/**
-	 * 고객의 현재 포인트를 조회합니다.
-	 */
 	public Integer getCustomerPoints(UUID customerId) {
 		Customer customer = getCustomer(customerId);
 		return customer.getPoints() != null ? customer.getPoints() : 0;
@@ -149,8 +148,6 @@ public class CustomerService {
 			customer.setName(request.getName());
 			customer.setNickname(request.getNickname());
 			customer.setPhoneNumber(request.getPhone());
-			
-			// 회원가입 시 포인트는 기본값 0으로 설정
 			customer.setPoints(0);
 			
 			log.info("Customer 엔티티 생성 완료: {}", customer);
@@ -158,7 +155,6 @@ public class CustomerService {
 			Customer savedCustomer = customerRepository.save(customer);
 			log.info("데이터베이스 저장 완료: savedCustomer={}", savedCustomer);
 			
-			// 저장된 데이터 재확인
 			Customer foundCustomer = customerRepository.findById(savedCustomer.getId()).orElse(null);
 			log.info("저장된 데이터 재확인: foundCustomer={}", foundCustomer);
 			
@@ -181,5 +177,113 @@ public class CustomerService {
 
 		customer.setPassword(passwordEncoder.encode(request.getNewPassword()));
 		customerRepository.save(customer);
+	}
+
+	@Transactional
+	public ChargePointsResponseDto chargePoints(UUID customerId, ChargePointsRequestDto request) {
+		log.info("포인트 충전 시작: customerId={}, points={}", customerId, request.getPoints());
+
+		Customer customer = customerRepository.findById(customerId)
+				.orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
+
+		if (request.getPoints() == null || request.getPoints() <= 0) {
+			throw new IllegalArgumentException("충전할 포인트는 0보다 커야 합니다.");
+		}
+
+		Integer maxPoints = 1000000;
+		if (customer.getPoints() + request.getPoints() > maxPoints) {
+			throw new IllegalStateException(String.format(
+				"포인트 충전 한도를 초과했습니다. 현재: %d, 충전요청: %d, 최대: %d", 
+				customer.getPoints(), request.getPoints(), maxPoints));
+		}
+
+		Integer currentPoints = customer.getPoints();
+		customer.setPoints(currentPoints + request.getPoints());
+		customerRepository.save(customer);
+
+		log.info("포인트 충전 완료: customerId={}, chargedPoints={}, totalPoints={}", 
+				customerId, request.getPoints(), customer.getPoints());
+
+		return ChargePointsResponseDto.builder()
+				.customerId(customerId)
+				.chargedPoints(request.getPoints())
+				.totalPoints(customer.getPoints())
+				.availablePoints(customer.getPoints() - customer.getReservedPoints())
+				.chargedAt(customer.getUpdatedAt())
+				.message("포인트가 성공적으로 충전되었습니다.")
+				.build();
+	}
+
+	@Transactional
+	public void reservePoints(UUID customerId, Integer pointsToReserve) {
+		log.info("포인트 예약 시작: customerId={}, points={}", customerId, pointsToReserve);
+
+		Customer customer = customerRepository.findById(customerId)
+				.orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
+
+		if (pointsToReserve == null || pointsToReserve <= 0) {
+			throw new IllegalArgumentException("예약할 포인트는 0보다 커야 합니다.");
+		}
+		
+		Integer availablePoints = customer.getPoints() - customer.getReservedPoints();
+		if (availablePoints < pointsToReserve) {
+			throw new IllegalStateException(String.format(
+				"사용 가능한 포인트가 부족합니다. 보유: %d, 예약됨: %d, 사용가능: %d, 필요: %d", 
+				customer.getPoints(), customer.getReservedPoints(), availablePoints, pointsToReserve));
+		}
+		
+		customer.setReservedPoints(customer.getReservedPoints() + pointsToReserve);
+		customerRepository.save(customer);
+
+		log.info("포인트 예약 완료: customerId={}, reservedPoints={}", customerId, customer.getReservedPoints());
+	}
+
+	@Transactional
+	public void processReservedPoints(UUID customerId, Integer pointsToProcess) {
+		log.info("예약된 포인트 처리 시작: customerId={}, points={}", customerId, pointsToProcess);
+
+		Customer customer = customerRepository.findById(customerId)
+				.orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
+
+		if (pointsToProcess == null || pointsToProcess <= 0) {
+			throw new IllegalArgumentException("처리할 포인트는 0보다 커야 합니다.");
+		}
+		
+		if (customer.getReservedPoints() < pointsToProcess) {
+			throw new IllegalStateException(String.format(
+				"예약된 포인트가 부족합니다. 예약됨: %d, 처리요청: %d", 
+				customer.getReservedPoints(), pointsToProcess));
+		}
+		
+		customer.setReservedPoints(customer.getReservedPoints() - pointsToProcess);
+		customer.setPoints(customer.getPoints() - pointsToProcess);
+		customerRepository.save(customer);
+
+		log.info("예약된 포인트 처리 완료: customerId={}, remainingReserved={}, remainingPoints={}", 
+				customerId, customer.getReservedPoints(), customer.getPoints());
+	}
+
+	@Transactional
+	public void cancelReservedPoints(UUID customerId, Integer pointsToCancel) {
+		log.info("포인트 예약 취소 시작: customerId={}, points={}", customerId, pointsToCancel);
+
+		Customer customer = customerRepository.findById(customerId)
+				.orElseThrow(() -> new BusinessException(CustomerErrorCode.CUSTOMER_NOT_FOUND));
+
+		if (pointsToCancel == null || pointsToCancel <= 0) {
+			throw new IllegalArgumentException("취소할 포인트는 0보다 커야 합니다.");
+		}
+		
+		if (customer.getReservedPoints() < pointsToCancel) {
+			throw new IllegalStateException(String.format(
+				"취소할 예약 포인트가 부족합니다. 예약됨: %d, 취소요청: %d", 
+				customer.getReservedPoints(), pointsToCancel));
+		}
+		
+		customer.setReservedPoints(customer.getReservedPoints() - pointsToCancel);
+		customerRepository.save(customer);
+
+		log.info("포인트 예약 취소 완료: customerId={}, remainingReserved={}", 
+				customerId, customer.getReservedPoints());
 	}
 }

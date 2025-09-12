@@ -5,17 +5,15 @@ import com.eatcloud.paymentservice.entity.PaymentMethodCode;
 import com.eatcloud.paymentservice.entity.PaymentRequest;
 import com.eatcloud.paymentservice.entity.PaymentStatus;
 import com.eatcloud.paymentservice.entity.PaymentRequestStatus;
+import com.eatcloud.paymentservice.kafka.producer.PaymentEventProducer;
 import com.eatcloud.paymentservice.repository.PaymentMethodCodeRepository;
 import com.eatcloud.paymentservice.repository.PaymentRepository;
 import com.eatcloud.paymentservice.repository.PaymentRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -31,7 +29,7 @@ public class PaymentService {
     private final PaymentRequestRepository paymentRequestRepository;
     private final TossPaymentService tossPaymentService;
     private final PaymentMethodCodeRepository paymentMethodCodeRepository;
-    private final RestTemplate restTemplate;
+    private final PaymentEventProducer paymentEventProducer;
     
     private static final long PAYMENT_TIMEOUT_MINUTES = 5;
     
@@ -87,32 +85,23 @@ public class PaymentService {
         
         paymentRequest.updateStatus(PaymentRequestStatus.COMPLETED);
         paymentRequestRepository.save(paymentRequest);
-        
-        // 주문 서비스에 동기 호출로 결제 완료 알림
+
         try {
-            String url = "http://order-service/api/v1/orders/" + savedPayment.getOrderId() + "/payment/complete";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "payment-service");
-            
-            Map<String, Object> requestBody = Map.of("paymentId", savedPayment.getPaymentId().toString());
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("주문 서비스에 결제 완료 알림 성공: orderId={}, paymentId={}", 
-                        savedPayment.getOrderId(), savedPayment.getPaymentId());
-            } else {
-                log.error("주문 서비스에 결제 완료 알림 실패: orderId={}, paymentId={}, status={}", 
-                         savedPayment.getOrderId(), savedPayment.getPaymentId(), response.getStatusCode());
-                throw new RuntimeException("주문 상태 업데이트 실패: " + response.getStatusCode());
-            }
-        } catch (RestClientException e) {
-            log.error("주문 서비스 호출 실패: orderId={}, paymentId={}", 
+            paymentEventProducer.publishPaymentCompleted(
+                savedPayment.getOrderId(),
+                savedPayment.getCustomerId(),
+                savedPayment.getPaymentId(),
+                savedPayment.getTotalAmount(),
+                savedPayment.getTotalAmount(),
+                0,
+                savedPayment.getPaymentMethod().toString(),
+                savedPayment.getPgTransactionId()
+            );
+            log.info("결제 완료 이벤트 발행 성공: orderId={}, paymentId={}", 
+                    savedPayment.getOrderId(), savedPayment.getPaymentId());
+        } catch (Exception e) {
+            log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            throw new RuntimeException("결제는 완료되었으나 주문 상태 업데이트에 실패했습니다: " + e.getMessage(), e);
         }
         
         log.info("결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
@@ -155,31 +144,22 @@ public class PaymentService {
             paymentRequestRepository.save(paymentRequest);
         }
 
-        // 주문 서비스에 동기 호출로 결제 완료 알림
         try {
-            String url = "http://order-service/api/v1/orders/" + savedPayment.getOrderId() + "/payment/complete";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Service-Name", "payment-service");
-            
-            Map<String, Object> requestBody = Map.of("paymentId", savedPayment.getPaymentId().toString());
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("[MOCK] 주문 서비스에 결제 완료 알림 성공: orderId={}, paymentId={}", 
-                        savedPayment.getOrderId(), savedPayment.getPaymentId());
-            } else {
-                log.error("[MOCK] 주문 서비스에 결제 완료 알림 실패: orderId={}, paymentId={}, status={}", 
-                         savedPayment.getOrderId(), savedPayment.getPaymentId(), response.getStatusCode());
-                throw new RuntimeException("주문 상태 업데이트 실패: " + response.getStatusCode());
-            }
-        } catch (RestClientException e) {
-            log.error("[MOCK] 주문 서비스 호출 실패: orderId={}, paymentId={}", 
+            paymentEventProducer.publishPaymentCompleted(
+                savedPayment.getOrderId(),
+                savedPayment.getCustomerId(),
+                savedPayment.getPaymentId(),
+                savedPayment.getTotalAmount(),
+                savedPayment.getTotalAmount(),
+                0,
+                savedPayment.getPaymentMethod().toString(),
+                savedPayment.getPgTransactionId()
+            );
+            log.info("[MOCK] 결제 완료 이벤트 발행 성공: orderId={}, paymentId={}", 
+                    savedPayment.getOrderId(), savedPayment.getPaymentId());
+        } catch (Exception e) {
+            log.error("[MOCK] 결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
                      savedPayment.getOrderId(), savedPayment.getPaymentId(), e);
-            throw new RuntimeException("결제는 완료되었으나 주문 상태 업데이트에 실패했습니다: " + e.getMessage(), e);
         }
 
         log.info("[MOCK] 결제 승인 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
@@ -204,7 +184,7 @@ public class PaymentService {
         };
         return getMethodByCodeOrThrow(code);
     }
-    
+        
     @Async
     public CompletableFuture<Void> schedulePaymentTimeout(UUID paymentRequestId) {
         return CompletableFuture.runAsync(() -> {
@@ -266,20 +246,20 @@ public class PaymentService {
                 });
 
         // 2. 완료된 Payment가 있다면 환불 처리
-        paymentRepository.findByOrderId(orderId)
-                .ifPresent(payment -> {
-                    if (payment.getPaymentStatus() == PaymentStatus.COMPLETED) {
-                        payment.setPaymentStatus(PaymentStatus.CANCELLED);
-                        payment.setCancelledAt(LocalDateTime.now());
-                        paymentRepository.save(payment);
-                        
-                        log.info("결제 취소 완료: orderId={}, paymentId={}", orderId, payment.getPaymentId());
-                        
-                        // TODO: 실제 PG사 환불 API 호출 (Toss 등)
-                        // tossPaymentService.cancelPayment(payment.getPgTransactionId(), cancelReason);
-                    }
-                });
-
-        log.info("주문 취소로 인한 결제 처리 완료: orderId={}", orderId);
+        // paymentRepository.findByOrderId(orderId)
+        //         .ifPresent(payment -> {
+        //             if (payment.getPaymentStatus() == PaymentStatus.COMPLETED) {
+        //                 payment.setPaymentStatus(PaymentStatus.CANCELLED);
+        //                 payment.setCancelledAt(LocalDateTime.now());
+        //                 paymentRepository.save(payment);
+        //
+        //                 log.info("결제 취소 완료: orderId={}, paymentId={}", orderId, payment.getPaymentId());
+        //
+        //                 // TODO: 실제 PG사 환불 API 호출 (Toss 등)
+        //                 // tossPaymentService.cancelPayment(payment.getPgTransactionId(), cancelReason);
+        //             }
+        //         });
+        //
+        // log.info("주문 취소로 인한 결제 처리 완료: orderId={}", orderId);
     }
 } 

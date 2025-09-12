@@ -1,269 +1,301 @@
-// package com.eatcloud.orderservice.service;
-//
-// import com.eatcloud.orderservice.dto.CartItem;
-// import com.eatcloud.orderservice.dto.OrderMenu;
-// import com.eatcloud.orderservice.dto.request.CreateOrderRequest;
-// import com.eatcloud.orderservice.dto.response.CreateOrderResponse;
-// import com.eatcloud.orderservice.entity.Order;
-// import com.eatcloud.orderservice.exception.ErrorCode;
-// import com.eatcloud.orderservice.exception.OrderException;
-// import lombok.RequiredArgsConstructor;
-// import lombok.extern.slf4j.Slf4j;
-//
-// import org.springframework.context.annotation.Lazy;
-// import org.springframework.stereotype.Service;
-// import org.springframework.transaction.annotation.Transactional;
-//
-// import java.util.List;
-// import java.util.UUID;
-// import java.util.concurrent.TimeUnit;
-// import java.util.stream.Collectors;
-//
-// /**
-//  * Saga 패턴 오케스트레이터
-//  * 분산 트랜잭션을 관리하고 보상 로직을 처리
-//  */
-// @Service
-// @RequiredArgsConstructor
-// @Slf4j
-// public class SagaOrchestrator {
-//
-//     private final DistributedLockService lockService;
-//     @Lazy
-//     // private final OrderService orderService;
-//     private final CartService cartService;
-//     private final ExternalApiService externalApiService;
-//
-//     /**
-//      * 주문 생성 Saga - 분산 트랜잭션 처리
-//      * 1. 분산락 획득
-//      * 2. 재고 확인 및 예약
-//      * 3. 포인트 차감 (선택적)
-//      * 4. 주문 생성
-//      * 5. 결제 준비
-//      * 6. 장바구니 비우기
-//      */
-//     @Transactional
-//     public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request) {
-//         String sagaId = UUID.randomUUID().toString();
-//         SagaTransaction saga = new SagaTransaction(sagaId);
-//
-//         log.info("Starting order saga: sagaId={}, customerId={}, storeId={}",
-//                 sagaId, customerId, request.getStoreId());
-//
-//         try {
-//             // 분산락 키 설정 (고객, 매장, 장바구니에 대한 락)
-//             String[] lockKeys = {
-//                 "customer:" + customerId,
-//                 "store:" + request.getStoreId(),
-//                 "cart:" + customerId
-//             };
-//
-//             // 분산락을 사용한 트랜잭션 실행
-//             return lockService.executeWithMultiLock(
-//                 lockKeys,
-//                 10,  // 10초 대기
-//                 30,  // 30초 유지
-//                 TimeUnit.SECONDS,
-//                 () -> executeOrderCreation(customerId, request, saga)
-//             );
-//
-//         } catch (Exception e) {
-//             log.error("Order saga failed: sagaId={}, error={}", sagaId, e.getMessage(), e);
-//
-//             // Saga 보상 실행
-//             saga.compensate();
-//
-//             if (e instanceof OrderException) {
-//                 throw (OrderException) e;
-//             }
-//             throw new OrderException(ErrorCode.ORDER_PROCESSING,
-//                     "주문 처리 중 오류가 발생했습니다: " + e.getMessage());
-//         }
-//     }
-//
-//     /**
-//      * 실제 주문 생성 로직 실행
-//      */
-//     private CreateOrderResponse executeOrderCreation(UUID customerId, CreateOrderRequest request,
-//                                                      SagaTransaction saga) throws Exception {
-//         log.info("Executing order creation: customerId={}, storeId={}", customerId, request.getStoreId());
-//
-//         // Step 1: 장바구니 조회
-//         log.info("Step 1: Fetching cart items for customer: {}", customerId);
-//         List<CartItem> cartItems = cartService.getCart(customerId);
-//         if (cartItems.isEmpty()) {
-//             throw new OrderException(ErrorCode.EMPTY_CART, "장바구니가 비어있습니다.");
-//         }
-//
-//         // Step 2: 재고 확인 (store-service 호출)
-//         log.info("Step 2: Checking inventory availability");
-//         boolean inventoryAvailable = checkInventoryAvailability(request.getStoreId(), cartItems);
-//         if (!inventoryAvailable) {
-//             throw new OrderException(ErrorCode.INSUFFICIENT_INVENTORY, "재고가 부족합니다.");
-//         }
-//
-//         // Step 3: 장바구니 아이템을 주문 메뉴로 변환
-//         log.info("Step 3: Converting cart items to order menu");
-//         List<OrderMenu> orderMenuList = cartItems.stream()
-//             .map(item -> OrderMenu.builder()
-//                 .menuId(item.getMenuId())
-//                 .menuName(item.getMenuName())
-//                 .quantity(item.getQuantity())
-//                 .price(item.getPrice())
-//                 .build())
-//             .collect(Collectors.toList());
-//
-//         // Step 4: 메뉴 가격 검증 및 업데이트
-//         log.info("Step 4: Validating menu prices");
-//         validateAndUpdateMenuPrices(orderMenuList);
-//
-//         // Step 5: 포인트 차감 (사용하는 경우)
-//         String pointTransactionId = null;
-//         if (Boolean.TRUE.equals(request.getUsePoints()) && request.getPointsToUse() > 0) {
-//             log.info("Step 5: Deducting points: {} points", request.getPointsToUse());
-//             pointTransactionId = deductCustomerPoints(customerId, request.getPointsToUse());
-//
-//             // 포인트 복구를 위한 보상 추가
-//             final String txId = pointTransactionId;
-//             saga.addCompensation("Refund Points",
-//                 () -> refundCustomerPoints(customerId, txId, request.getPointsToUse()));
-//         }
-//
-//         // Step 6: 주문 생성
-//         log.info("Step 6: Creating pending order");
-//         Order order = orderService.createPendingOrder(
-//             customerId,
-//             request.getStoreId(),
-//             orderMenuList,
-//             request.getOrderType(),
-//             request.getUsePoints(),
-//             request.getPointsToUse()
-//         );
-//
-//         // 주문 취소를 위한 보상 추가
-//         saga.addCompensation("Cancel Order",
-//             () -> orderService.cancelOrder(order.getOrderId()));
-//
-//         // Step 7: 재고 예약
-//         log.info("Step 7: Reserving inventory for order: {}", order.getOrderNumber());
-//         String reservationId = reserveInventory(request.getStoreId(), orderMenuList);
-//
-//         // 재고 예약 취소를 위한 보상 추가
-//         saga.addCompensation("Release Inventory",
-//             () -> releaseInventory(request.getStoreId(), reservationId));
-//
-//         // Step 8: 장바구니 비우기
-//         log.info("Step 8: Clearing cart for customer: {}", customerId);
-//         try {
-//             cartService.clearCart(customerId);
-//         } catch (Exception e) {
-//             // 장바구니 삭제 실패는 critical하지 않음
-//             log.warn("Failed to clear cart for customer: {}, continuing...", customerId, e);
-//         }
-//
-//         // Saga 완료
-//         saga.complete();
-//
-//         log.info("Order created successfully: orderId={}, orderNumber={}",
-//                 order.getOrderId(), order.getOrderNumber());
-//
-//         // 응답 생성
-//         return CreateOrderResponse.builder()
-//             .orderId(order.getOrderId())
-//             .orderNumber(order.getOrderNumber())
-//             .totalPrice(order.getTotalPrice())
-//             .finalPaymentAmount(order.getFinalPaymentAmount())
-//             .orderStatus(order.getOrderStatusCode().getCode())
-//             .message("주문이 성공적으로 생성되었습니다. 결제를 진행해주세요.")
-//             .build();
-//     }
-//
-//     /**
-//      * 재고 가용성 확인
-//      */
-//     private boolean checkInventoryAvailability(UUID storeId, List<CartItem> items) {
-//         try {
-//             // TODO: store-service API 호출 구현
-//             // 현재는 항상 true 반환 (개발 중)
-//             return true;
-//         } catch (Exception e) {
-//             log.error("Failed to check inventory availability: {}", e.getMessage());
-//             return false;
-//         }
-//     }
-//
-//     /**
-//      * 메뉴 가격 검증 및 업데이트
-//      */
-//     private void validateAndUpdateMenuPrices(List<OrderMenu> orderMenuList) {
-//         for (OrderMenu menu : orderMenuList) {
-//             try {
-//                 Integer currentPrice = externalApiService.getMenuPrice(menu.getMenuId());
-//                 menu.setPrice(currentPrice);
-//             } catch (Exception e) {
-//                 log.error("Failed to get menu price for menuId: {}", menu.getMenuId(), e);
-//                 throw new OrderException(ErrorCode.MENU_NOT_FOUND,
-//                     "메뉴 가격을 조회할 수 없습니다: " + menu.getMenuId());
-//             }
-//         }
-//     }
-//
-//     /**
-//      * 고객 포인트 차감
-//      */
-//     private String deductCustomerPoints(UUID customerId, Integer points) {
-//         try {
-//             // TODO: customer-service API 호출 구현
-//             // 트랜잭션 ID 반환
-//             return UUID.randomUUID().toString();
-//         } catch (Exception e) {
-//             log.error("Failed to deduct customer points: {}", e.getMessage());
-//             throw new OrderException(ErrorCode.POINT_DEDUCTION_FAILED,
-//                 "포인트 차감에 실패했습니다.");
-//         }
-//     }
-//
-//     /**
-//      * 고객 포인트 환불 (보상)
-//      */
-//     private void refundCustomerPoints(UUID customerId, String transactionId, Integer points) {
-//         try {
-//             log.info("Refunding {} points to customer: {}, transactionId: {}",
-//                     points, customerId, transactionId);
-//             // TODO: customer-service API 호출 구현
-//         } catch (Exception e) {
-//             log.error("Failed to refund customer points: customerId={}, transactionId={}, points={}",
-//                      customerId, transactionId, points, e);
-//         }
-//     }
-//
-//     /**
-//      * 재고 예약
-//      */
-//     private String reserveInventory(UUID storeId, List<OrderMenu> items) {
-//         try {
-//             // TODO: store-service API 호출 구현
-//             // 예약 ID 반환
-//             return UUID.randomUUID().toString();
-//         } catch (Exception e) {
-//             log.error("Failed to reserve inventory: {}", e.getMessage());
-//             throw new OrderException(ErrorCode.INVENTORY_RESERVATION_FAILED,
-//                 "재고 예약에 실패했습니다.");
-//         }
-//     }
-//
-//     /**
-//      * 재고 예약 취소 (보상)
-//      */
-//     private void releaseInventory(UUID storeId, String reservationId) {
-//         try {
-//             log.info("Releasing inventory reservation: storeId={}, reservationId={}",
-//                     storeId, reservationId);
-//             // TODO: store-service API 호출 구현
-//         } catch (Exception e) {
-//             log.error("Failed to release inventory: storeId={}, reservationId={}",
-//                      storeId, reservationId, e);
-//         }
-//     }
-// }
+package com.eatcloud.orderservice.service;
+
+import com.eatcloud.orderservice.dto.CartItem;
+import com.eatcloud.orderservice.dto.OrderMenu;
+import com.eatcloud.orderservice.dto.request.CreateOrderRequest;
+import com.eatcloud.orderservice.dto.response.CreateOrderResponse;
+import com.eatcloud.orderservice.entity.Order;
+import com.eatcloud.orderservice.event.PointReservationRequestEvent;
+import com.eatcloud.orderservice.event.PointReservationResponseEvent;
+import com.eatcloud.orderservice.event.PointReservationCancelEvent;
+import com.eatcloud.orderservice.event.PointReservationCancelResponseEvent;
+import com.eatcloud.orderservice.event.PaymentRequestEvent;
+import com.eatcloud.orderservice.event.PaymentRequestResponseEvent;
+import com.eatcloud.orderservice.event.PaymentRequestCancelEvent;
+import com.eatcloud.orderservice.event.PaymentRequestCancelResponseEvent;
+import com.eatcloud.orderservice.exception.ErrorCode;
+import com.eatcloud.orderservice.exception.OrderException;
+import com.eatcloud.orderservice.kafka.consumer.PaymentRequestCancelResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PaymentRequestResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PointReservationCancelResponseEventConsumer;
+import com.eatcloud.orderservice.kafka.consumer.PointReservationResponseEventConsumer;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SagaOrchestrator {
+
+    private final DistributedLockService lockService;
+    private final CartService cartService;
+    private final OrderService orderService;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final PointReservationResponseEventConsumer pointReservationResponseEventConsumer;
+    private final PointReservationCancelResponseEventConsumer pointReservationCancelResponseEventConsumer;
+    private final PaymentRequestResponseEventConsumer paymentRequestResponseEventConsumer;
+    private final PaymentRequestCancelResponseEventConsumer paymentRequestCancelResponseEventConsumer;
+
+    @Transactional
+    public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request, String authorizationHeader) {
+        log.info("=== createOrderSaga called ===");
+        log.info("customerId: {}, storeId: {}, authorizationHeader: {}", customerId, request.getStoreId(), authorizationHeader != null ? "present" : "null");
+        
+        String sagaId = UUID.randomUUID().toString();
+        Saga saga = new Saga(sagaId);
+        
+        try {
+            log.info("Starting order saga: sagaId={}, customerId={}, storeId={}", sagaId, customerId, request.getStoreId());
+
+            String lockKey = "order:create:" + customerId;
+            if (!lockService.tryLock(lockKey, 5, TimeUnit.SECONDS)) {
+                throw new OrderException(ErrorCode.ORDER_PROCESSING, "다른 주문이 진행 중입니다.");
+            }
+            
+            try {
+                log.info("Step 1: Fetching cart items for customer: {}", customerId);
+                List<CartItem> cartItems = cartService.getCart(customerId);
+                log.info("Cart items retrieved: count={}, items={}", cartItems.size(), cartItems);
+                
+                if (cartItems.isEmpty()) {
+                    throw new OrderException(ErrorCode.EMPTY_CART, "장바구니가 비어있습니다.");
+                }
+
+                log.info("Step 2: Converting cart items to order menu");
+                List<OrderMenu> orderMenuList = cartItems.stream()
+                    .map(item -> OrderMenu.builder()
+                        .menuId(item.getMenuId())
+                        .menuName(item.getMenuName())
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .build())
+                    .collect(Collectors.toList());
+                log.info("OrderMenuList created: size={}, items={}", orderMenuList.size(), orderMenuList);
+                
+                // 메뉴 가격 검증
+
+                log.info("Step 4: Creating order");
+                Order order = orderService.createPendingOrder(
+                    customerId,
+                    request.getStoreId(),
+                    orderMenuList,
+                    request.getOrderType(),
+                    request.getUsePoints(),
+                    request.getPointsToUse()
+                );
+                log.info("Order created: orderId={}, orderMenuList size={}", order.getOrderId(), order.getOrderMenuList() != null ? order.getOrderMenuList().size() : "null");
+
+                saga.addCompensation("Cancel Order",
+                    () -> orderService.cancelOrder(order.getOrderId(), "Saga 실패로 인한 취소"));
+
+                if (Boolean.TRUE.equals(request.getUsePoints()) && request.getPointsToUse() > 0) {
+                    log.info("Step 5: Reserving points: {} points", request.getPointsToUse());
+                    String reservationId = reserveCustomerPointsAsync(customerId, order.getOrderId(), request.getPointsToUse(), sagaId);
+
+                    saga.addCompensation("Cancel Point Reservation",
+                        () -> cancelPointReservationAsync(customerId, order.getOrderId(), sagaId));
+                }
+
+                log.info("Step 6: Creating payment request");
+                String paymentUrl = createPaymentRequestAsync(order.getOrderId(), customerId, order.getFinalPaymentAmount(), sagaId);
+
+                saga.addCompensation("Cancel Payment Request",
+                    () -> cancelPaymentRequestAsync(order.getOrderId(), sagaId));
+
+                saga.clearCompensations();
+
+                log.info("Order saga completed successfully: orderId={}, paymentUrl={}", order.getOrderId(), paymentUrl);
+
+                return CreateOrderResponse.builder()
+                    .orderId(order.getOrderId())
+                    .orderNumber(order.getOrderNumber())
+                    .totalPrice(order.getTotalPrice())
+                    .finalPaymentAmount(order.getFinalPaymentAmount())
+                    .orderStatus(order.getOrderStatusCode().getCode())
+                    .paymentUrl(paymentUrl)
+                    .message("주문이 생성되었습니다.")
+                    .build();
+
+            } finally {
+                lockService.unlock(lockKey);
+            }
+        } catch (Exception e) {
+            log.error("=== Order saga failed ===");
+            log.error("Exception type: {}, message: {}", e.getClass().getSimpleName(), e.getMessage());
+
+            saga.executeCompensations();
+            throw e;
+        }
+    }
+
+    private String reserveCustomerPointsAsync(UUID customerId, UUID orderId, Integer points, String sagaId) {
+        try {
+            PointReservationRequestEvent requestEvent = PointReservationRequestEvent.builder()
+                    .orderId(orderId)
+                    .customerId(customerId)
+                    .points(points)
+                    .sagaId(sagaId)
+                    .build();
+            
+            kafkaTemplate.send("point.reservation.request", orderId.toString(), requestEvent);
+            log.info("포인트 예약 요청 이벤트 발행: customerId={}, orderId={}, points={}, sagaId={}", 
+                    customerId, orderId, points, sagaId);
+
+            CompletableFuture<PointReservationResponseEvent> responseFuture = 
+                    pointReservationResponseEventConsumer.waitForResponse(sagaId);
+            
+            PointReservationResponseEvent response = responseFuture.get(10, TimeUnit.SECONDS);
+            
+            if (response.isSuccess()) {
+                log.info("포인트 예약 성공: customerId={}, orderId={}, points={}, reservationId={}", 
+                        customerId, orderId, points, response.getReservationId());
+                return response.getReservationId();
+            } else {
+                throw new RuntimeException("포인트 예약 실패: " + response.getErrorMessage());
+            }
+        } catch (TimeoutException e) {
+            log.warn("포인트 예약 타임아웃: customerId={}, orderId={}, points={}", 
+                    customerId, orderId, points);
+            throw new RuntimeException("포인트 예약 요청이 시간 초과되었습니다");
+        } catch (Exception e) {
+            log.error("포인트 예약 실패: customerId={}, orderId={}, points={}", 
+                     customerId, orderId, points);
+            throw new RuntimeException("포인트 예약에 실패했습니다: " + e.getMessage());
+        }
+    }
+
+    private void cancelPointReservationAsync(UUID customerId, UUID orderId, String sagaId) {
+        try {
+            PointReservationCancelEvent cancelEvent = PointReservationCancelEvent.builder()
+                    .orderId(orderId)
+                    .customerId(customerId)
+                    .sagaId(sagaId)
+                    .build();
+            
+            kafkaTemplate.send("point.reservation.cancel", orderId.toString(), cancelEvent);
+            log.info("포인트 예약 취소 이벤트 발행: customerId={}, orderId={}, sagaId={}", 
+                    customerId, orderId, sagaId);
+
+            CompletableFuture<PointReservationCancelResponseEvent> responseFuture = 
+                    pointReservationCancelResponseEventConsumer.waitForResponse(sagaId);
+            
+            PointReservationCancelResponseEvent response = responseFuture.get(5, TimeUnit.SECONDS);
+            
+            if (response.isSuccess()) {
+                log.info("포인트 예약 취소 성공: customerId={}, orderId={}", customerId, orderId);
+            } else {
+                log.error("포인트 예약 취소 실패: customerId={}, orderId={}, error={}", 
+                        customerId, orderId, response.getErrorMessage());
+            }
+        } catch (TimeoutException e) {
+            log.warn("포인트 예약 취소 타임아웃: customerId={}, orderId={}", customerId, orderId);
+        } catch (Exception e) {
+            log.error("포인트 예약 취소 실패: customerId={}, orderId={}", customerId, orderId);
+        }
+    }
+
+    private String createPaymentRequestAsync(UUID orderId, UUID customerId, Integer amount, String sagaId) {
+        try {
+            PaymentRequestEvent requestEvent = PaymentRequestEvent.builder()
+                    .orderId(orderId)
+                    .customerId(customerId)
+                    .amount(amount)
+                    .sagaId(sagaId)
+                    .build();
+            
+            kafkaTemplate.send("payment.request", orderId.toString(), requestEvent);
+            log.info("결제 요청 이벤트 발행: orderId={}, customerId={}, amount={}, sagaId={}", 
+                    orderId, customerId, amount, sagaId);
+
+            CompletableFuture<PaymentRequestResponseEvent> responseFuture = 
+                    paymentRequestResponseEventConsumer.waitForResponse(sagaId);
+            
+            PaymentRequestResponseEvent response = responseFuture.get(10, TimeUnit.SECONDS);
+            
+            if (response.isSuccess()) {
+                log.info("결제 요청 성공: orderId={}, customerId={}, amount={}, paymentUrl={}", 
+                        orderId, customerId, amount, response.getPaymentUrl());
+                return response.getPaymentUrl();
+            } else {
+                throw new RuntimeException("결제 요청 실패: " + response.getErrorMessage());
+            }
+        } catch (TimeoutException e) {
+            log.warn("결제 요청 타임아웃: orderId={}, customerId={}, amount={}", 
+                    orderId, customerId, amount);
+            throw new RuntimeException("결제 요청이 시간 초과되었습니다");
+        } catch (Exception e) {
+            log.error("결제 요청 실패: orderId={}, customerId={}, amount={}", 
+                     orderId, customerId, amount);
+            throw new RuntimeException("결제 요청에 실패했습니다: " + e.getMessage());
+        }
+    }
+
+    private void cancelPaymentRequestAsync(UUID orderId, String sagaId) {
+        try {
+            PaymentRequestCancelEvent cancelEvent = PaymentRequestCancelEvent.builder()
+                    .orderId(orderId)
+                    .sagaId(sagaId)
+                    .build();
+            
+            kafkaTemplate.send("payment.request.cancel", orderId.toString(), cancelEvent);
+            log.info("결제 요청 취소 이벤트 발행: orderId={}, sagaId={}", orderId, sagaId);
+
+            CompletableFuture<PaymentRequestCancelResponseEvent> responseFuture = 
+                    paymentRequestCancelResponseEventConsumer.waitForResponse(sagaId);
+            
+            PaymentRequestCancelResponseEvent response = responseFuture.get(5, TimeUnit.SECONDS);
+            
+            if (response.isSuccess()) {
+                log.info("결제 요청 취소 성공: orderId={}", orderId);
+            } else {
+                log.error("결제 요청 취소 실패: orderId={}, error={}", orderId, response.getErrorMessage());
+            }
+        } catch (TimeoutException e) {
+            log.warn("결제 요청 취소 타임아웃: orderId={}", orderId);
+        } catch (Exception e) {
+            log.error("결제 요청 취소 실패: orderId={}", orderId);
+        }
+    }
+
+    private static class Saga {
+        private final String sagaId;
+        private final List<Runnable> compensations = new java.util.ArrayList<>();
+
+        public Saga(String sagaId) {
+            this.sagaId = sagaId;
+        }
+
+        public void addCompensation(String name, Runnable compensation) {
+            log.info("보상 로직 추가: sagaId={}, name={}", sagaId, name);
+            compensations.add(compensation);
+        }
+
+        public void executeCompensations() {
+            log.info("보상 로직 실행 시작: sagaId={}, count={}", sagaId, compensations.size());
+            for (int i = compensations.size() - 1; i >= 0; i--) {
+                try {
+                    compensations.get(i).run();
+                    log.info("보상 로직 실행 완료: sagaId={}, index={}", sagaId, i);
+                } catch (Exception e) {
+                    log.error("보상 로직 실행 실패: sagaId={}, index={}", sagaId, i, e);
+                }
+            }
+        }
+
+        public void clearCompensations() {
+            compensations.clear();
+        }
+    }
+}

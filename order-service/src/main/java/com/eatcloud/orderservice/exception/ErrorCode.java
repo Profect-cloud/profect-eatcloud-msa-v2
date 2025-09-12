@@ -23,6 +23,7 @@ public enum ErrorCode {
     MENU_NOT_FOUND(HttpStatus.NOT_FOUND, "메뉴를 찾을 수 없습니다."),
     POINT_DEDUCTION_FAILED(HttpStatus.BAD_REQUEST, "포인트 차감에 실패했습니다."),
     INVENTORY_RESERVATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "재고 예약에 실패했습니다."),
+    PAYMENT_REQUEST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "결제 요청 생성에 실패했습니다."),
 
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
 
