@@ -1,0 +1,303 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: admin-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-admin-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: admin.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: admin-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-api-gateway
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: gateway.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: api-gateway
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-auth-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: auth.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: auth-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: customer-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-customer-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: customer.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: customer-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: manager-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-manager-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: manager.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: manager-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: order-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-order-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: order.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: order-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-payment-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: payment.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payment-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: store-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Profect-cloud/profect-eatcloud-msa-v2.git
+    targetRevision: main
+    path: deploy/charts/app
+    helm:
+      parameters:
+        - name: image.repository
+          value: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-store-service
+        - name: image.tag
+          value: "0"
+        - name: image.pullPolicy
+          value: IfNotPresent
+        - name: imagePullSecrets[0].name
+          value: ecr-pull
+        - name: service.port
+          value: "8080"
+        - name: ingress.enabled
+          value: "true"
+        - name: ingress.className
+          value: nginx
+        - name: ingress.host
+          value: store.local
+        - name: ingress.path
+          value: /
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: store-service
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ "CreateNamespace=true" ]
