@@ -24,11 +24,11 @@ spec:
         image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/admin-service:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8081
+        - containerPort: 8083
           name: http
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "dev"
+          value: "aws"
         - name: LOG_PATH
           value: "/var/log/app"
         - name: SPRING_APPLICATION_NAME

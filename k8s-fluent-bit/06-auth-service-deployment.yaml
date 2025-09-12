@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: dev
+  labels:
+    app: auth-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: v1
+    spec:
+      serviceAccountName: fluent-bit-service-account
+      containers:
+        # 메인 애플리케이션 컨테이너
+        - name: auth-service
+          image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "aws"
+            - name: LOG_PATH
+              value: "/var/log/app"
+            - name: SPRING_APPLICATION_NAME
+              value: "auth-service"
+            - name: LOGGING_RECOMMENDATION_ENABLED
+              value: "true"
+          envFrom:
+            - configMapRef:
+                name: complete-configmap
+            - secretRef:
+                name: app-secrets
+          volumeMounts:
+            - name: app-logs
+              mountPath: /var/log/app
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+        # Fluent Bit 사이드카 컨테이너
+        - name: fluent-bit
+          image: fluent/fluent-bit:2.2.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2020
+              name: http-metrics
+          env:
+            - name: AWS_REGION
+              value: "ap-northeast-2"
+            - name: AWS_DEFAULT_REGION
+              value: "ap-northeast-2"
+          volumeMounts:
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc
+            - name: app-logs
+              mountPath: /var/log/app
+              readOnly: true
+            - name: fluent-bit-db
+              mountPath: /fluent-bit/tail
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+        - name: fluent-bit-db
+          emptyDir: {}
+        - name: fluent-bit-config
+          configMap:
+            name: fluent-bit-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: dev
+  labels:
+    app: auth-service
+spec:
+  ports:
+    - port: 80
+      targetPort: 8081
+      protocol: TCP
+      name: http
+    - port: 2020
+      targetPort: 2020
+      protocol: TCP
+      name: metrics
+  selector:
+    app: auth-service
+  type: ClusterIP

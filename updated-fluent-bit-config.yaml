@@ -74,8 +74,6 @@ data:
         Add     cluster_name eatcloud
         Add     region ap-northeast-2
 
-
-
     # File outputs (existing)
     [OUTPUT]
         Name                file
@@ -102,12 +100,37 @@ data:
         Path                /var/log/fluent-bit/
         File                admin-logs.txt
 
-    # NEW: Kinesis Data Streams output
+    # Kinesis outputs to existing streams
     [OUTPUT]
         Name                kinesis_streams
-        Match               eatcloud.*
+        Match               eatcloud.stateful
         region              ap-northeast-2
-        stream              eatcloud-logs
+        stream              eatcloud-stateful-logs
+        time_key            @timestamp
+        time_key_format     %Y-%m-%dT%H:%M:%S.%3NZ
+
+    [OUTPUT]
+        Name                kinesis_streams
+        Match               eatcloud.stateless
+        region              ap-northeast-2
+        stream              eatcloud-stateless-logs
+        time_key            @timestamp
+        time_key_format     %Y-%m-%dT%H:%M:%S.%3NZ
+
+    [OUTPUT]
+        Name                kinesis_streams
+        Match               eatcloud.recommendation
+        region              ap-northeast-2
+        stream              eatcloud-recommendation-events
+        time_key            @timestamp
+        time_key_format     %Y-%m-%dT%H:%M:%S.%3NZ
+
+    # Admin logs go to stateless stream for now
+    [OUTPUT]
+        Name                kinesis_streams
+        Match               eatcloud.admin*
+        region              ap-northeast-2
+        stream              eatcloud-stateless-logs
         time_key            @timestamp
         time_key_format     %Y-%m-%dT%H:%M:%S.%3NZ
 
