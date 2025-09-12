@@ -1,14 +1,22 @@
-nameOverride: ""
-fullnameOverride: ""
+# deploy/charts/app/values.yaml (또는 각 서비스 values에서 override)
+replicaCount: 2
+
+rollout:
+  enabled: true              # ← 켜면 Deployment 대신 Rollout 렌더
+  steps:
+    - setWeight: 10
+    - pause: { duration: 60s }
+    - setWeight: 50
+    - pause: {}              # 수동 승인 지점(무기한)
+    - setWeight: 100
 
 image:
-  repository: nginx
-  tag: latest
+  repository: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-auth-service
+  tag: "0"
   pullPolicy: IfNotPresent
 
-imagePullSecrets: []  # minikube+ECR면 values에서 override
-
-replicaCount: 1
+imagePullSecrets:
+  - name: ecr-pull
 
 service:
   port: 8080
@@ -16,5 +24,5 @@ service:
 ingress:
   enabled: true
   className: nginx
-  host: example.local
+  host: auth.local
   path: /

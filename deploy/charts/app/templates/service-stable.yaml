@@ -1,0 +1,21 @@
+# deploy/charts/app/templates/service-stable.yaml
+{{- if .Values.rollout.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.fullname" . }}-stable
+spec:
+  selector: { app: {{ include "app.fullname" . }} }
+  ports: [{ port: {{ .Values.service.port }}, targetPort: {{ .Values.service.port }} }]
+{{- end }}
+---
+# deploy/charts/app/templates/service-canary.yaml
+{{- if .Values.rollout.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.fullname" . }}-canary
+spec:
+  selector: { app: {{ include "app.fullname" . }} }
+  ports: [{ port: {{ .Values.service.port }}, targetPort: {{ .Values.service.port }} }]
+{{- end }}
