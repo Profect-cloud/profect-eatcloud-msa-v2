@@ -40,7 +40,6 @@ public class OrderService {
     private final OrderStatusCodeRepository orderStatusCodeRepository;
     private final OrderTypeCodeRepository orderTypeCodeRepository;
     private final DistributedLockService distributedLockService;
-    private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
     @Lazy
 
@@ -267,11 +266,8 @@ public class OrderService {
 
         order.setPaymentId(paymentId);
         order.setOrderStatusCode(paidStatus);
-        Order savedOrder = orderRepository.save(order);
 
         log.info("주문 결제 완료 처리: orderId={}, paymentId={}", orderId, paymentId);
-
-        // order-service에서는 PaymentCompletedEvent를 발행하지 않습니다. (payment-service 단일 발행)
     }
 
     public void failPayment(UUID orderId, String failureReason) {
