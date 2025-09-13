@@ -5,6 +5,7 @@ DROP TABLE IF EXISTS p_delivery_orders CASCADE;
 DROP TABLE IF EXISTS p_pickup_orders CASCADE;
 DROP TABLE IF EXISTS p_orders CASCADE;
 DROP TABLE IF EXISTS p_cart CASCADE;
+DROP TABLE IF EXISTS outbox_events CASCADE;
 DROP TABLE IF EXISTS order_type_codes CASCADE;
 DROP TABLE IF EXISTS order_status_codes CASCADE;
 
@@ -102,6 +103,24 @@ CREATE TABLE IF NOT EXISTS order_status_codes (
     deleted_at TIMESTAMP,
     deleted_by VARCHAR(100)
 );
+
+-- Outbox events table
+CREATE TABLE IF NOT EXISTS outbox_events (
+    event_id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(100) NOT NULL,
+    aggregate_id VARCHAR(100) NOT NULL,
+    event_type VARCHAR(150) NOT NULL,
+    payload JSONB NOT NULL,
+    headers JSONB,
+    status VARCHAR(20) NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    next_attempt_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox_events(status);
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_at ON outbox_events(next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate ON outbox_events(aggregate_type, aggregate_id);
 
 CREATE TABLE IF NOT EXISTS order_type_codes (
     code VARCHAR(30) PRIMARY KEY,

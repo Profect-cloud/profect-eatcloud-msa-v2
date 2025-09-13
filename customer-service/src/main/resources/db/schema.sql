@@ -2,6 +2,7 @@ CREATE SCHEMA IF NOT EXISTS customer;
 SET search_path TO public;
 
 DROP TABLE IF EXISTS point_reservations;
+DROP TABLE IF EXISTS processed_events;
 DROP TABLE IF EXISTS p_addresses;
 DROP TABLE IF EXISTS p_customer;
 
@@ -53,6 +54,16 @@ CREATE TABLE IF NOT EXISTS point_reservations (
     deleted_at     TIMESTAMP,
     deleted_by     VARCHAR(100)
 );
+
+-- Idempotency guard for event consumption
+CREATE TABLE IF NOT EXISTS processed_events (
+    id UUID PRIMARY KEY,
+    event_type VARCHAR(150) NOT NULL,
+    order_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_processed_event_unique ON processed_events(event_type, order_id);
 
 CREATE INDEX IF NOT EXISTS idx_point_reservations_customer ON point_reservations(customer_id);
 CREATE INDEX IF NOT EXISTS idx_point_reservations_order ON point_reservations(order_id);

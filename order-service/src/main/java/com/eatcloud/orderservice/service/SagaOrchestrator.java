@@ -47,6 +47,7 @@ public class SagaOrchestrator {
     private final PointReservationCancelResponseEventConsumer pointReservationCancelResponseEventConsumer;
     private final PaymentRequestResponseEventConsumer paymentRequestResponseEventConsumer;
     private final PaymentRequestCancelResponseEventConsumer paymentRequestCancelResponseEventConsumer;
+    private final OutboxService outboxService;
 
     @Transactional
     public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request, String authorizationHeader) {
@@ -96,6 +97,38 @@ public class SagaOrchestrator {
                     request.getPointsToUse()
                 );
                 log.info("Order created: orderId={}, orderMenuList size={}", order.getOrderId(), order.getOrderMenuList() != null ? order.getOrderMenuList().size() : "null");
+
+                // Outbox: OrderCreatedEvent 저장
+                try {
+                    com.eatcloud.orderservice.event.OrderCreatedEvent createdEvent =
+                            com.eatcloud.orderservice.event.OrderCreatedEvent.builder()
+                                    .orderId(order.getOrderId())
+                                    .customerId(order.getCustomerId())
+                                    .storeId(order.getStoreId())
+                                    .totalAmount(order.getTotalPrice())
+                                    .finalAmount(order.getFinalPaymentAmount())
+                                    .pointsToUse(order.getPointsToUse())
+                                    .orderItems(orderMenuList.stream()
+                                            .map(m -> com.eatcloud.orderservice.event.OrderCreatedEvent.OrderItemEvent.builder()
+                                                    .menuId(m.getMenuId())
+                                                    .menuName(m.getMenuName())
+                                                    .quantity(m.getQuantity())
+                                                    .unitPrice(m.getPrice())
+                                                    .build())
+                                            .collect(java.util.stream.Collectors.toList()))
+                                    .build();
+
+                    outboxService.saveEvent(
+                            "Order",
+                            order.getOrderId().toString(),
+                            "OrderCreatedEvent",
+                            createdEvent,
+                            outboxService.defaultHeaders(null, sagaId)
+                    );
+                    log.info("OrderCreatedEvent Outbox 기록 완료: orderId={}", order.getOrderId());
+                } catch (Exception e) {
+                    log.error("OrderCreatedEvent Outbox 기록 실패: orderId={}", order.getOrderId(), e);
+                }
 
                 saga.addCompensation("Cancel Order",
                     () -> orderService.cancelOrder(order.getOrderId(), "Saga 실패로 인한 취소"));

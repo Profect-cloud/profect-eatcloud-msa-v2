@@ -41,6 +41,7 @@ public class OrderService {
     private final OrderTypeCodeRepository orderTypeCodeRepository;
     private final DistributedLockService distributedLockService;
     private final OrderEventProducer orderEventProducer;
+    private final OutboxService outboxService;
     @Lazy
 
     @Autowired
@@ -90,25 +91,32 @@ public class OrderService {
 
                     try {
                         com.eatcloud.orderservice.event.OrderCreatedEvent event =
-                            com.eatcloud.orderservice.event.OrderCreatedEvent.builder()
-                                .orderId(order.getOrderId())
-                                .customerId(order.getCustomerId())
-                                .storeId(order.getStoreId())
-                                .totalAmount(order.getTotalPrice())
-                                .finalAmount(order.getFinalPaymentAmount())
-                                .pointsToUse(order.getPointsToUse())
-                                .orderItems(orderMenuList.stream()
-                                    .map(m -> com.eatcloud.orderservice.event.OrderCreatedEvent.OrderItemEvent.builder()
-                                        .menuId(m.getMenuId())
-                                        .menuName(m.getMenuName())
-                                        .quantity(m.getQuantity())
-                                        .unitPrice(m.getPrice())
-                                        .build())
-                                    .collect(java.util.stream.Collectors.toList()))
-                                .build();
-                        orderEventProducer.publishOrderCreated(event);
+                                com.eatcloud.orderservice.event.OrderCreatedEvent.builder()
+                                        .orderId(order.getOrderId())
+                                        .customerId(order.getCustomerId())
+                                        .storeId(order.getStoreId())
+                                        .totalAmount(order.getTotalPrice())
+                                        .finalAmount(order.getFinalPaymentAmount())
+                                        .pointsToUse(order.getPointsToUse())
+                                        .orderItems(orderMenuList.stream()
+                                                .map(m -> com.eatcloud.orderservice.event.OrderCreatedEvent.OrderItemEvent.builder()
+                                                        .menuId(m.getMenuId())
+                                                        .menuName(m.getMenuName())
+                                                        .quantity(m.getQuantity())
+                                                        .unitPrice(m.getPrice())
+                                                        .build())
+                                                .collect(java.util.stream.Collectors.toList()))
+                                        .build();
+
+                        outboxService.saveEvent(
+                                "Order",
+                                order.getOrderId().toString(),
+                                "OrderCreatedEvent",
+                                event,
+                                outboxService.defaultHeaders(null, null)
+                        );
                     } catch (Exception publishEx) {
-                        log.error("주문 생성 이벤트 발행 실패: orderId={}", order.getOrderId(), publishEx);
+                        log.error("주문 생성 Outbox 기록 실패: orderId={}", order.getOrderId(), publishEx);
                     }
 
                     try {
@@ -263,23 +271,7 @@ public class OrderService {
 
         log.info("주문 결제 완료 처리: orderId={}, paymentId={}", orderId, paymentId);
 
-        try {
-            PaymentCompletedEvent event = PaymentCompletedEvent.builder()
-                    .orderId(savedOrder.getOrderId())
-                    .paymentId(paymentId)
-                    .customerId(savedOrder.getCustomerId())
-                    .amount(savedOrder.getFinalPaymentAmount())
-                    .completedAt(java.time.LocalDateTime.now())
-                    .pointsUsed(savedOrder.getPointsToUse() != null ? savedOrder.getPointsToUse() : 0)
-                    .build();
-
-            orderEventProducer.publishPaymentCompleted(event);
-            log.info("결제 완료 이벤트 발행 완료: orderId={}, paymentId={}", orderId, paymentId);
-
-        } catch (Exception eventException) {
-            log.error("결제 완료 이벤트 발행 실패: orderId={}, paymentId={}", 
-                     orderId, paymentId, eventException);
-        }
+        // order-service에서는 PaymentCompletedEvent를 발행하지 않습니다. (payment-service 단일 발행)
     }
 
     public void failPayment(UUID orderId, String failureReason) {
@@ -325,10 +317,17 @@ public class OrderService {
                             .cancelledAt(java.time.LocalDateTime.now())
                             .createdAt(java.time.LocalDateTime.now())
                             .build();
-            orderEventProducer.publishOrderCancelled(event);
-            log.info("주문 취소 이벤트 발행 완료: orderId={}, customerId={}", orderId, order.getCustomerId());
+
+            outboxService.saveEvent(
+                    "Order",
+                    order.getOrderId().toString(),
+                    "OrderCancelledEvent",
+                    event,
+                    outboxService.defaultHeaders(null, null)
+            );
+            log.info("주문 취소 Outbox 기록 완료: orderId={}, customerId={}", orderId, order.getCustomerId());
         } catch (Exception publishEx) {
-            log.error("주문 취소 이벤트 발행 실패: orderId={}", orderId, publishEx);
+            log.error("주문 취소 Outbox 기록 실패: orderId={}", orderId, publishEx);
         }
 
         log.info("주문 취소 처리 완료: orderId={}, reason={}", orderId, cancelReason);

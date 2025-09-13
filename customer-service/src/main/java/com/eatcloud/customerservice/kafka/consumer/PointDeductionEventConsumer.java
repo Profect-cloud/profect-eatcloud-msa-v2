@@ -3,6 +3,9 @@ package com.eatcloud.customerservice.kafka.consumer;
 import com.eatcloud.customerservice.event.PointDeductionRequestEvent;
 import com.eatcloud.customerservice.event.PointDeductionResponseEvent;
 import com.eatcloud.customerservice.kafka.producer.CustomerEventProducer;
+import com.eatcloud.customerservice.entity.ProcessedEvent;
+import com.eatcloud.customerservice.repository.ProcessedEventRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.eatcloud.customerservice.service.CustomerService;
 
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ public class PointDeductionEventConsumer {
 
     private final CustomerService customerService;
     private final CustomerEventProducer customerEventProducer;
+    private final ProcessedEventRepository processedEventRepository;
 
     @KafkaListener(topics = "point.deduction.request", groupId = "customer-service-deduction", 
                    containerFactory = "pointDeductionKafkaListenerContainerFactory")
@@ -25,6 +29,21 @@ public class PointDeductionEventConsumer {
                 event.getOrderId(), event.getCustomerId(), event.getPointsUsed());
 
         try {
+            // Idempotency guard: (eventType, orderId) unique
+            String eventType = "PointDeductionRequestEvent";
+            if (processedEventRepository.existsByEventTypeAndOrderId(eventType, event.getOrderId())) {
+                log.info("중복 PointDeductionRequestEvent 무시: orderId={}", event.getOrderId());
+                return;
+            }
+            try {
+                processedEventRepository.save(ProcessedEvent.builder()
+                        .eventType(eventType)
+                        .orderId(event.getOrderId())
+                        .build());
+            } catch (DataIntegrityViolationException dup) {
+                log.info("경합 중복 PointDeductionRequestEvent 무시: orderId={}", event.getOrderId());
+                return;
+            }
             customerService.processReservedPoints(event.getCustomerId(), event.getPointsUsed());
 
             PointDeductionResponseEvent responseEvent = PointDeductionResponseEvent.builder()
