@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-external
+  namespace: monitoring
+  annotations:
+    # Internal NLB 생성 (VPC 내부에서만 접근 가능)
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # 헬스체크 설정
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/ready"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "3100"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "6"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
+spec:
+  type: LoadBalancer
+  selector:
+    app: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: 3100
+      protocol: TCP

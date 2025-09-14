@@ -1,0 +1,143 @@
+# Prometheus Values for EKS
+# kube-prometheus-stack configuration
+
+# Global settings
+fullnameOverride: ""
+nameOverride: ""
+
+# Grafana configuration
+grafana:
+  enabled: true
+  adminPassword: "eatcloud-admin"
+
+  # Grafana datasources
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki:3100
+      access: proxy
+      isDefault: false
+
+  # Grafana resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  persistence:
+    enabled: true
+    storageClassName: gp2
+    size: 10Gi
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  # Import default dashboards
+  dashboards:
+    default:
+      loki-logs:
+        gnetId: 13407
+        datasource: Loki
+      kubernetes-cluster:
+        gnetId: 7249
+        datasource: Prometheus
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+
+  prometheusSpec:
+    # Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+
+    # Resources
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 200m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+
+    # Retention
+    retention: 30d
+    retentionSize: 45GB
+
+    # Service discovery
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    # External labels
+    externalLabels:
+      cluster: "eatcloud"
+      region: "ap-northeast-2"
+
+# AlertManager
+alertmanager:
+  enabled: true
+
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 200m
+
+# Node Exporter
+nodeExporter:
+  enabled: true
+
+# kube-state-metrics
+kubeStateMetrics:
+  enabled: true
+
+# Core DNS monitoring
+coreDns:
+  enabled: true
+
+# kubelet monitoring
+kubelet:
+  enabled: true
+
+# API server monitoring
+kubeApiServer:
+  enabled: true
+
+# Controller Manager monitoring
+kubeControllerManager:
+  enabled: false  # EKS managed
+
+# Scheduler monitoring
+kubeScheduler:
+  enabled: false  # EKS managed
+
+# etcd monitoring
+kubeEtcd:
+  enabled: false  # EKS managed
+
+# Proxy monitoring
+kubeProxy:
+  enabled: true

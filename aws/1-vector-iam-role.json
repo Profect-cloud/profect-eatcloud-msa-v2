@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kinesis:DescribeStream",
+        "kinesis:DescribeStreamSummary",
+        "kinesis:GetShardIterator",
+        "kinesis:GetRecords",
+        "kinesis:ListShards"
+      ],
+      "Resource": [
+        "arn:aws:kinesis:ap-northeast-2:536580887516:stream/eatcloud-stateless-logs",
+        "arn:aws:kinesis:ap-northeast-2:536580887516:stream/eatcloud-stateful-logs"
+      ]
+    }
+  ]
+}
