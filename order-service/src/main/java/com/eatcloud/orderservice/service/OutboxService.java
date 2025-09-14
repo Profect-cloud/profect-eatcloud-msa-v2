@@ -19,7 +19,7 @@ import java.util.Map;
 public class OutboxService {
 
     private final OutboxEventRepository outboxEventRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void saveEvent(String aggregateType,

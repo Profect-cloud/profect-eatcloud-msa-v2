@@ -52,19 +52,22 @@ public class KafkaConfig {
 
     @Bean
     public DefaultErrorHandler defaultErrorHandler() {
-        // DLQ 설정: 실패한 메시지를 원본 토픽명.dlt로 전송
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
-        
-        // 재시도 설정: 3회 재시도, 1초 간격
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate(),
+                (record, ex) -> new org.apache.kafka.common.TopicPartition(record.topic() + ".dlt", record.partition())
+        );
+
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
-        
+
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // 요청 토픽용 ErrorHandler (DLT 있음)
     @Bean
     public DefaultErrorHandler requestErrorHandler() {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate(),
+                (record, ex) -> new org.apache.kafka.common.TopicPartition(record.topic() + ".dlt", record.partition())
+        );
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
         return new DefaultErrorHandler(recoverer, backOff);
     }

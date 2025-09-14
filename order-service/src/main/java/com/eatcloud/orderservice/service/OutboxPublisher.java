@@ -29,7 +29,7 @@ public class OutboxPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OutboxMappingProperties mappingProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Value("${outbox.publisher.batch-size:50}")
     private int batchSize;
@@ -51,7 +51,7 @@ public class OutboxPublisher {
                 kafkaTemplate.send(new ProducerRecord<>(topic, event.getAggregateId(), value));
 
                 eventSuccess(event);
-                log.info("Outbox 이벤트 발행 성공: eventId={}, type={}, topic={}", event.getEventId(), event.getEventType(), topic);
+                log.debug("Outbox 이벤트 발행 성공: eventId={}, type={}, topic={}", event.getEventId(), event.getEventType(), topic);
             } catch (Exception e) {
                 eventFailure(event, e);
                 log.error("Outbox 이벤트 발행 실패: eventId={}, type={}, error={}", event.getEventId(), event.getEventType(), e.getMessage());
@@ -72,7 +72,6 @@ public class OutboxPublisher {
         return switch (eventType) {
             case "OrderCreatedEvent" -> objectMapper.readValue(payloadJson, OrderCreatedEvent.class);
             case "OrderCancelledEvent" -> objectMapper.readValue(payloadJson, OrderCancelledEvent.class);
-            // PaymentCompletedEvent는 payment-service에서만 발행하도록 정책 변경
             case "PointDeductionRequestEvent" -> objectMapper.readValue(payloadJson, PointDeductionRequestEvent.class);
             default -> throw new IllegalArgumentException("역직렬화 클래스를 찾을 수 없습니다: " + eventType);
         };
