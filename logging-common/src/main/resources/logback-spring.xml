@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    
     <!-- 프로퍼티 정의 -->
     <springProperty scope="context" name="springAppName" source="spring.application.name"/>
     <springProperty scope="context" name="springProfile" source="spring.profiles.active" defaultValue="local"/>
-    
-    <!-- 로그 파일 경로 -->
-    <property name="LOG_PATH" value="${LOG_PATH:-/var/log/app}"/>
-    <property name="LOG_FILE" value="${LOG_PATH}/${springAppName:-application}"/>
     
     <!-- Console Appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
                 <timestamp>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
                     <timeZone>Asia/Seoul</timeZone>
                 </timestamp>
                 <logLevel/>
@@ -42,19 +37,13 @@
         </encoder>
     </appender>
     
-    <!-- Stateful 로그 Appender (상태 기반: 주문, 결제, 재고 등) -->
-    <appender name="STATEFUL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}-stateful.log</file>
-        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
-            <evaluator>
-                <expression>mdc != null &amp;&amp; "stateful".equals(mdc.get("logType"))</expression>
-            </evaluator>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
+    <!-- Application 로그 파일 (모든 로그를 하나의 파일에) -->
+    <appender name="APPLICATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/var/log/app/${springAppName:-application}.log</file>
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
                 <timestamp>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
                     <timeZone>Asia/Seoul</timeZone>
                 </timestamp>
                 <logLevel/>
@@ -62,302 +51,30 @@
                 <mdc/>
                 <message/>
                 <stackTrace/>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${springAppName:-unknown}",
-                        "profile": "${springProfile:-local}",
-                        "traceId": "%X{requestId:-}",
-                        "orderId": "%X{orderId:-}",
-                        "userId": "%X{userId:-}",
-                        "userRole": "%X{userRole:-}",
-                        "clientIp": "%X{clientIp:-}",
-                        "sessionId": "%X{sessionId:-}",
-                        "thread": "%thread",
-                        "logType": "stateful"
-                        }
-                    </pattern>
-                </pattern>
             </providers>
         </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FILE}-stateful.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- Stateless 로그 Appender (상태 비기반: 조회, 검색, 캐시 등) -->
-    <appender name="STATELESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}-stateless.log</file>
-        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
-            <evaluator>
-                <expression>mdc != null &amp;&amp; "stateless".equals(mdc.get("logType"))</expression>
-            </evaluator>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>Asia/Seoul</timeZone>
-                </timestamp>
-                <logLevel/>
-                <loggerName/>
-                <mdc/>
-                <message/>
-                <stackTrace/>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${springAppName:-unknown}",
-                        "profile": "${springProfile:-local}",
-                        "traceId": "%X{requestId:-}",
-                        "orderId": "%X{orderId:-}",
-                        "userId": "%X{userId:-}",
-                        "userRole": "%X{userRole:-}",
-                        "clientIp": "%X{clientIp:-}",
-                        "sessionId": "%X{sessionId:-}",
-                        "thread": "%thread",
-                        "logType": "stateless"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FILE}-stateless.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- Recommendation 로그 Appender (추천 이벤트: 사용자 행동, 추천 결과 등) -->
-    <appender name="RECOMMENDATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}-recommendation.log</file>
-        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
-            <evaluator>
-                <expression>mdc != null &amp;&amp; "recommendation".equals(mdc.get("logType"))</expression>
-            </evaluator>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>Asia/Seoul</timeZone>
-                </timestamp>
-                <logLevel/>
-                <loggerName/>
-                <mdc/>
-                <message/>
-                <stackTrace/>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${springAppName:-unknown}",
-                        "profile": "${springProfile:-local}",
-                        "traceId": "%X{requestId:-}",
-                        "orderId": "%X{orderId:-}",
-                        "userId": "%X{userId:-}",
-                        "userRole": "%X{userRole:-}",
-                        "clientIp": "%X{clientIp:-}",
-                        "sessionId": "%X{sessionId:-}",
-                        "thread": "%thread",
-                        "logType": "recommendation"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FILE}-recommendation.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>/var/log/app/${springAppName:-application}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
-    </appender>
-
-    <!-- 기본 File Appender (기존 로그들) -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}.log</file>
-        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
-            <evaluator>
-                <expression>mdc == null || mdc.get("logType") == null</expression>
-            </evaluator>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>Asia/Seoul</timeZone>
-                </timestamp>
-                <logLevel/>
-                <loggerName/>
-                <mdc/>
-                <message/>
-                <stackTrace/>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${springAppName:-unknown}",
-                        "profile": "${springProfile:-local}",
-                        "traceId": "%X{requestId:-}",
-                        "orderId": "%X{orderId:-}",
-                        "userId": "%X{userId:-}",
-                        "userRole": "%X{userRole:-}",
-                        "clientIp": "%X{clientIp:-}",
-                        "sessionId": "%X{sessionId:-}",
-                        "thread": "%thread"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- Error File Appender -->
-    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}-error.log</file>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
-        </filter>
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>Asia/Seoul</timeZone>
-                </timestamp>
-                <logLevel/>
-                <loggerName/>
-                <mdc/>
-                <message/>
-                <stackTrace/>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${springAppName:-unknown}",
-                        "profile": "${springProfile:-local}",
-                        "traceId": "%X{requestId:-}",
-                        "orderId": "%X{orderId:-}",
-                        "userId": "%X{userId:-}",
-                        "userRole": "%X{userRole:-}",
-                        "clientIp": "%X{clientIp:-}",
-                        "sessionId": "%X{sessionId:-}",
-                        "thread": "%thread",
-                        "logType": "%X{logType:-error}"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FILE}-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- Async Appenders for better performance -->
-    <appender name="ASYNC_STATEFUL_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="STATEFUL_FILE"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_STATELESS_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="STATELESS_FILE"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_RECOMMENDATION_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="RECOMMENDATION_FILE"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-    </appender>
-
-    <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="ERROR_FILE"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
     </appender>
 
     <!-- 프로필별 로그 설정 -->
-    <springProfile name="local,dev,docker">
-        <logger name="com.eatcloud" level="DEBUG"/>
-        <logger name="org.springframework.web" level="DEBUG"/>
-        <logger name="org.springframework.security" level="DEBUG"/>
-        <logger name="org.hibernate.SQL" level="DEBUG"/>
-        <logger name="org.hibernate.type" level="TRACE"/>
-
+    <springProfile name="local,dev,docker,aws">
+        <logger name="com.eatcloud" level="INFO"/>
+        
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_STATEFUL_FILE"/>
-            <appender-ref ref="ASYNC_STATELESS_FILE"/>
-            <appender-ref ref="ASYNC_RECOMMENDATION_FILE"/>
-            <appender-ref ref="ASYNC_FILE"/>
-            <appender-ref ref="ASYNC_ERROR_FILE"/>
+            <appender-ref ref="APPLICATION_FILE"/>
         </root>
     </springProfile>
 
     <springProfile name="prod">
         <logger name="com.eatcloud" level="INFO"/>
-        <logger name="org.springframework" level="WARN"/>
-        <logger name="org.hibernate" level="WARN"/>
-        <logger name="root" level="WARN"/>
-
-        <root level="INFO">
-            <appender-ref ref="ASYNC_STATEFUL_FILE"/>
-            <appender-ref ref="ASYNC_STATELESS_FILE"/>
-            <appender-ref ref="ASYNC_RECOMMENDATION_FILE"/>
-            <appender-ref ref="ASYNC_FILE"/>
-            <appender-ref ref="ASYNC_ERROR_FILE"/>
-        </root>
-    </springProfile>
-    
-    <springProfile name="test">
-        <logger name="com.eatcloud" level="DEBUG"/>
         
         <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
-    
-    <springProfile name="aws">
-        <logger name="com.eatcloud" level="INFO"/>
-        <logger name="org.springframework" level="WARN"/>
-        <logger name="org.hibernate" level="WARN"/>
-        <logger name="com.netflix.discovery" level="OFF"/>
-        <logger name="org.springframework.cloud.netflix.eureka" level="OFF"/>
-        
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_STATEFUL_FILE"/>
-            <appender-ref ref="ASYNC_STATELESS_FILE"/>
-            <appender-ref ref="ASYNC_RECOMMENDATION_FILE"/>
-            <appender-ref ref="ASYNC_FILE"/>
-            <appender-ref ref="ASYNC_ERROR_FILE"/>
+            <appender-ref ref="APPLICATION_FILE"/>
         </root>
     </springProfile>
     

@@ -1,0 +1,13 @@
+{
+  "InstanceType": "kafka.t3.small",
+  "ClientSubnets": [
+    "subnet-0c66ca1fea24116a5",
+    "subnet-029b4e47d0be0c4b5"
+  ],
+  "SecurityGroups": ["sg-07ef5f9dd9b2470e5"],
+  "StorageInfo": {
+    "EbsStorageInfo": {
+      "VolumeSize": 20
+    }
+  }
+}

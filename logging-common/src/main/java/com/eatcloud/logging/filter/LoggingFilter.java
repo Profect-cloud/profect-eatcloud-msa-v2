@@ -2,6 +2,7 @@ package com.eatcloud.logging.filter;
 
 import com.eatcloud.logging.context.RequestContext;
 import com.eatcloud.logging.mdc.MDCUtil;
+import com.eatcloud.logging.util.LogTypeHelper;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,7 +34,12 @@ public class LoggingFilter implements Filter {
             // MDC 설정
             setupMDC(httpRequest, startTime);
             
-            log.info("REQUEST START - {} {} from {}",
+            // 기본 로그 타입 설정 (stateless)
+            LogTypeHelper.setDefaultLogType();
+            
+            // LogType별 전용 로거 사용
+            org.slf4j.Logger statelessLogger = org.slf4j.LoggerFactory.getLogger("stateless");
+            statelessLogger.info("REQUEST START - {} {} from {}",
                     httpRequest.getMethod(),
                     httpRequest.getRequestURI(),
                     getClientIpAddress(httpRequest));

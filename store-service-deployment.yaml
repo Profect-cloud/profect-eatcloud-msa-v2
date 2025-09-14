@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "17"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"store-service","version":"v1"},"name":"store-service","namespace":"dev"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"store-service"}},"template":{"metadata":{"labels":{"app":"store-service","version":"v1"}},"spec":{"containers":[{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"aws"},{"name":"LOG_PATH","value":"/var/log/app"},{"name":"SPRING_APPLICATION_NAME","value":"store-service"},{"name":"LOGGING_RECOMMENDATION_ENABLED","value":"true"},{"name":"STORE_DB_HOST","value":"eatcloud-dev-store.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com"},{"name":"STORE_DB_NAME","value":"storedb"}],"envFrom":[{"configMapRef":{"name":"complete-configmap"}},{"secretRef":{"name":"app-secrets"}}],"image":"536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/store-service:latest","imagePullPolicy":"Always","name":"store-service","ports":[{"containerPort":8086,"name":"http"}],"resources":{"limits":{"cpu":"500m","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"volumeMounts":[{"mountPath":"/var/log/app","name":"app-logs"}]},{"env":[{"name":"AWS_REGION","value":"ap-northeast-2"},{"name":"AWS_DEFAULT_REGION","value":"ap-northeast-2"}],"image":"fluent/fluent-bit:2.2.0","imagePullPolicy":"Always","livenessProbe":{"httpGet":{"path":"/api/v1/health","port":2020},"initialDelaySeconds":30,"periodSeconds":30},"name":"fluent-bit","ports":[{"containerPort":2020,"name":"http-metrics"}],"readinessProbe":{"httpGet":{"path":"/api/v1/health","port":2020},"initialDelaySeconds":10,"periodSeconds":10},"resources":{"limits":{"cpu":"200m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"volumeMounts":[{"mountPath":"/fluent-bit/etc","name":"fluent-bit-config"},{"mountPath":"/var/log/app","name":"app-logs","readOnly":true},{"mountPath":"/fluent-bit/tail","name":"fluent-bit-db"}]}],"serviceAccountName":"fluent-bit-service-account","volumes":[{"emptyDir":{},"name":"app-logs"},{"emptyDir":{},"name":"fluent-bit-db"},{"configMap":{"name":"fluent-bit-config"},"name":"fluent-bit-config"}]}}}}
+  creationTimestamp: "2025-09-12T05:47:22Z"
+  generation: 17
+  labels:
+    app: store-service
+    version: v1
+  name: store-service
+  namespace: dev
+  resourceVersion: "2443231"
+  uid: 6afe8291-8014-4830-a54d-11a136860797
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: store-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2025-09-13T23:49:18+09:00"
+      creationTimestamp: null
+      labels:
+        app: store-service
+        version: v1
+    spec:
+      containers:
+        - env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://eatcloud-dev-store.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com:5432/storedb
+            - name: JAVA_OPTS
+              value: -Xms512m -Xmx1536m -XX:+UseG1GC
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: DB_PASSWORD
+                  name: db-secret
+            - name: SPRING_PROFILES_ACTIVE
+              value: aws
+            - name: LOG_PATH
+              value: /var/log/app
+            - name: SPRING_APPLICATION_NAME
+              value: store-service
+            - name: LOGGING_RECOMMENDATION_ENABLED
+              value: "true"
+            - name: STORE_DB_HOST
+              value: eatcloud-dev-store.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com
+            - name: STORE_DB_NAME
+              value: storedb
+          envFrom:
+            - configMapRef:
+                name: complete-configmap
+            - secretRef:
+                name: app-secrets
+          image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/store-service:latest
+          imagePullPolicy: Always
+          name: store-service
+          ports:
+            - containerPort: 8085
+              name: http
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /api/v1/store/actuator/health/readiness
+              port: 8085
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v1/store/actuator/health/liveness
+              port: 8085
+              scheme: HTTP
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 5
+            timeoutSeconds: 10
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/log/app
+              name: app-logs
+        - env:
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+          image: fluent/fluent-bit:2.2.0
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fluent-bit
+          ports:
+            - containerPort: 2020
+              name: http-metrics
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /fluent-bit/etc
+              name: fluent-bit-config
+            - mountPath: /var/log/app
+              name: app-logs
+              readOnly: true
+            - mountPath: /fluent-bit/tail
+              name: fluent-bit-db
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: fluent-bit-service-account
+      serviceAccountName: fluent-bit-service-account
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: {}
+          name: app-logs
+        - emptyDir: {}
+          name: fluent-bit-db
+        - configMap:
+            defaultMode: 420
+            name: fluent-bit-config
+          name: fluent-bit-config
+status:
+  availableReplicas: 1
+  conditions:
+    - lastTransitionTime: "2025-09-13T14:50:37Z"
+      lastUpdateTime: "2025-09-13T14:50:37Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2025-09-12T06:39:13Z"
+      lastUpdateTime: "2025-09-13T14:50:38Z"
+      message: ReplicaSet "store-service-5666b59d6f" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+  observedGeneration: 17
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

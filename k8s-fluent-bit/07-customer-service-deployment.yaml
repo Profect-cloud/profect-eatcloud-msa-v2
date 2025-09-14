@@ -35,28 +35,16 @@ spec:
               value: "customer-service"
             - name: LOGGING_RECOMMENDATION_ENABLED
               value: "true"
-            - name: CUSTOMER_DB_HOST
-              value: "eatcloud-dev-customer.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com"
-            - name: CUSTOMER_DB_NAME
-              value: "customerdb"
-            - name: DB_PORT
-              value: "5432"
-            - name: DB_USERNAME
-              value: "dbadmin" # DB_USERNAME 환경 변수 추가
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
-                  key: DB_PASSWORD # DB_PASSWORD 환경 변수 추가
-            - name: REDIS_HOST
-              value: "eatcloud-redis"
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              value: "eatcloud-kafka-service:9092"
+                  key: DB_PASSWORD
+            - name: JAVA_OPTS
+              value: "-Xms1g -Xmx2560m -XX:+UseG1GC"
           envFrom:
             - configMapRef:
                 name: complete-configmap
-            - secretRef:
-                name: app-secrets
           volumeMounts:
             - name: app-logs
               mountPath: /var/log/app
@@ -69,16 +57,16 @@ spec:
               cpu: "500m"
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /api/v1/customer/actuator/health/liveness
               port: 8082
             initialDelaySeconds: 180
             periodSeconds: 30
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /api/v1/customer/actuator/health/readiness
               port: 8082
-            initialDelaySeconds: 180
+            initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 5
 

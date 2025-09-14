@@ -1,0 +1,170 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager-service
+  namespace: dev
+  labels:
+    app: manager-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: manager-service
+  template:
+    metadata:
+      labels:
+        app: manager-service
+        version: v1
+    spec:
+      serviceAccountName: fluent-bit-service-account
+      containers:
+        - name: manager-service
+          image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/manager-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8084
+              name: http
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://eatcloud-dev-manager.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com:5432/managerdb
+            - name: SPRING_PROFILES_ACTIVE
+              value: aws
+            - name: LOG_PATH
+              value: /var/log/app
+            - name: SPRING_APPLICATION_NAME
+              value: manager-service
+            - name: LOGGING_RECOMMENDATION_ENABLED
+              value: "true"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: DB_PASSWORD
+                  name: db-secret
+            - name: JAVA_OPTS
+              value: "-Xms512m -Xmx1536m -XX:+UseG1GC"
+            - name: AWS_STS_REGIONAL_ENDPOINTS
+              value: regional
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_ROLE_ARN
+              value: arn:aws:iam::536580887516:role/FluentBitKinesisRole
+            - name: AWS_WEB_IDENTITY_TOKEN_FILE
+              value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+          envFrom:
+            - configMapRef:
+                name: complete-configmap
+            - secretRef:
+                name: app-secrets
+          resources:
+            limits:
+              cpu: 1
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/manager/actuator/health/liveness
+              port: 8084
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/manager/actuator/health/readiness
+              port: 8084
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - mountPath: /var/log/app
+              name: app-logs
+            - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+              name: aws-iam-token
+              readOnly: true
+        - name: fluent-bit
+          image: fluent/fluent-bit:2.2.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2020
+              name: http-metrics
+          env:
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+            - name: AWS_STS_REGIONAL_ENDPOINTS
+              value: regional
+            - name: AWS_ROLE_ARN
+              value: arn:aws:iam::536580887516:role/FluentBitKinesisRole
+            - name: AWS_WEB_IDENTITY_TOKEN_FILE
+              value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - mountPath: /fluent-bit/etc
+              name: fluent-bit-config
+            - mountPath: /var/log/app
+              name: app-logs
+              readOnly: true
+            - mountPath: /fluent-bit/tail
+              name: fluent-bit-db
+            - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+              name: aws-iam-token
+              readOnly: true
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+        - name: fluent-bit-db
+          emptyDir: {}
+        - name: fluent-bit-config
+          configMap:
+            name: fluent-bit-config
+        - name: aws-iam-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: sts.amazonaws.com
+                  expirationSeconds: 86400
+                  path: token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: manager-service
+  namespace: dev
+  labels:
+    app: manager-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8084
+      protocol: TCP
+      name: http
+    - port: 2020
+      targetPort: 2020
+      protocol: TCP
+      name: http-metrics
+  selector:
+    app: manager-service
