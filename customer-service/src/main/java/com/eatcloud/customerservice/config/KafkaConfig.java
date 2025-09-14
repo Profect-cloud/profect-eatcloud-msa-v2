@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -27,6 +28,7 @@ public class KafkaConfig {
     private String bootstrapServers;
 
     @Bean
+    @Primary
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -43,30 +45,35 @@ public class KafkaConfig {
     }
     
     @Bean
+    @Primary
     public KafkaTemplate<String, Object> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
     }
 
     @Bean
     public DefaultErrorHandler defaultErrorHandler() {
-        // DLQ 설정: 실패한 메시지를 원본 토픽명.dlt로 전송
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
-        
-        // 재시도 설정: 3회 재시도, 1초 간격
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate(),
+                (record, ex) -> new org.apache.kafka.common.TopicPartition(record.topic() + ".dlt", record.partition())
+        );
+
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
-        
+
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // 요청 토픽용 ErrorHandler (DLT 있음)
     @Bean
     public DefaultErrorHandler requestErrorHandler() {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate(),
+                (record, ex) -> new org.apache.kafka.common.TopicPartition(record.topic() + ".dlt", record.partition())
+        );
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
     @Bean
+    @Primary
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -83,6 +90,7 @@ public class KafkaConfig {
     }
 
     @Bean
+    @Primary
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());

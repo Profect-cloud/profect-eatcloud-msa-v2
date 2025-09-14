@@ -84,3 +84,8 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Ensure parameter names are available to Spring
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['-parameters']
+}

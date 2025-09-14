@@ -6,7 +6,6 @@ import com.eatcloud.orderservice.event.PaymentCompletedEvent;
 import com.eatcloud.orderservice.event.PointDeductionRequestEvent;
 import com.eatcloud.orderservice.repository.OrderRepository;
 import com.eatcloud.orderservice.repository.OrderStatusCodeRepository;
-import org.springframework.kafka.core.KafkaTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,7 @@ public class AsyncOrderCompletionService {
 
     private final OrderRepository orderRepository;
     private final OrderStatusCodeRepository orderStatusCodeRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     @Transactional
     public void processOrderCompletion(PaymentCompletedEvent event) {
@@ -79,8 +78,14 @@ public class AsyncOrderCompletionService {
                     .sagaId(UUID.randomUUID().toString())
                     .build();
 
-            kafkaTemplate.send("point.deduction.request", orderId.toString(), event);
-            log.info("포인트 차감 이벤트 발행 완료: orderId={}, customerId={}, pointsUsed={}", 
+            outboxService.saveEvent(
+                    "Order",
+                    orderId.toString(),
+                    "PointDeductionRequestEvent",
+                    event,
+                    outboxService.defaultHeaders(null, event.getSagaId())
+            );
+            log.info("포인트 차감 Outbox 기록 완료: orderId={}, customerId={}, pointsUsed={}", 
                     orderId, customerId, pointsUsed);
 
         } catch (Exception e) {
