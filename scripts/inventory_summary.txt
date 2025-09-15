@@ -1,0 +1,12 @@
+--- Inventory Concurrency Summary ---
+BASE_URL: http://host.docker.internal:8080
+MENU_ID:  11111111-1111-1111-1111-111111111111
+
+Reserve success:   168
+Conflict(409):     0
+Svc Unavail(503):  110
+401 Unauthorized:  0
+Other 4xx:         0
+Other 5xx:         2
+Other errors:      0
+-------------------------------------

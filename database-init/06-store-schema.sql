@@ -146,3 +146,80 @@ CREATE TABLE IF NOT EXISTS p_ai_responses (
   deleted_by     VARCHAR(100)
 );
 
+CREATE TABLE IF NOT EXISTS p_stock_logs (
+    log_id           UUID PRIMARY KEY,
+    menu_id          UUID NOT NULL,
+    order_id         UUID,
+    order_line_id    UUID,
+    action           VARCHAR(16) NOT NULL,   -- RESERVE, CONFIRM, CANCEL
+    change_amount    INT NOT NULL,           -- -N, 0, +N
+    reason           VARCHAR(100),
+    created_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_logs_line_action
+    ON p_stock_logs(order_line_id, action);
+
+CREATE INDEX IF NOT EXISTS idx_stock_logs_menu
+    ON p_stock_logs(menu_id);
+
+/* =========================
+   Inventory: 현재 재고 스냅샷
+   ========================= */
+CREATE TABLE IF NOT EXISTS inventory_stock (
+                                               menu_id        UUID PRIMARY KEY
+                                                   REFERENCES p_menus(menu_id) ON DELETE CASCADE,
+                                               is_unlimited   BOOLEAN  NOT NULL DEFAULT FALSE,
+                                               available_qty  INT      NOT NULL DEFAULT 0,
+                                               reserved_qty   INT      NOT NULL DEFAULT 0,
+                                               updated_at     TIMESTAMP NOT NULL DEFAULT now(),
+                                               CONSTRAINT ck_inventory_stock_non_negative
+                                                   CHECK (available_qty >= 0 AND reserved_qty >= 0)
+);
+
+
+
+/* =========================
+   Inventory: 주문 라인 단위 예약
+   ========================= */
+CREATE TABLE IF NOT EXISTS inventory_reservations (
+                                                      reservation_id  UUID PRIMARY KEY,
+                                                      menu_id         UUID NOT NULL
+                                                          REFERENCES p_menus(menu_id) ON DELETE CASCADE,
+                                                      order_id        UUID NOT NULL,
+                                                      order_line_id   UUID NOT NULL UNIQUE,   -- 멱등 키
+                                                      qty             INT  NOT NULL,
+                                                      status          VARCHAR(16) NOT NULL,   -- PENDING | CONFIRMED | CANCELED
+                                                      reason          VARCHAR(64),
+                                                      expires_at      TIMESTAMP,              -- 예약 TTL
+                                                      created_at      TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- 메뉴/상태별 조회 가속
+CREATE INDEX IF NOT EXISTS idx_inv_res_menu_status
+    ON inventory_reservations(menu_id, status);
+
+-- 예약 만료 스캔 가속(PENDING만)
+CREATE INDEX IF NOT EXISTS idx_inv_res_expire_pending
+    ON inventory_reservations(expires_at)
+    WHERE status = 'PENDING';
+
+-- 주문 단위 조회 가속(선택)
+CREATE INDEX IF NOT EXISTS idx_inv_res_order
+    ON inventory_reservations(order_id);
+
+/* =========================
+   Outbox for ES/CQRS
+   ========================= */
+CREATE TABLE IF NOT EXISTS outbox (
+                                      id           UUID PRIMARY KEY,
+                                      event_type   VARCHAR(50) NOT NULL,   -- stock.reserved / stock.released / stock.adjusted
+                                      aggregate_id UUID NOT NULL,          -- menu_id or reservation_id
+                                      payload      JSONB NOT NULL,         -- {menuId, orderId, orderLineId, qty, reason, occurredAt, eventVersion}
+                                      created_at   TIMESTAMP NOT NULL DEFAULT now(),
+                                      published_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_unpublished
+    ON outbox (published_at) WHERE published_at IS NULL;
+

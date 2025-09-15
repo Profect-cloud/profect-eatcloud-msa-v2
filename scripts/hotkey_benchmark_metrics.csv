@@ -1,0 +1,12 @@
+metric,value
+reserve_ok,0
+reserve_409,0
+reserve_503,0
+reserve_other4xx,0
+reserve_other5xx,0
+confirm_ok,0
+confirm_err,0
+reserve_p95,449
+reserve_p99,0
+confirm_p95,493.85
+confirm_p99,0
