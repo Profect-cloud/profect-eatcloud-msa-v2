@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-external
+  namespace: monitoring
+  annotations:
+    # Fargate 환경을 위한 핵심 설정: 타겟 유형을 'ip'로 지정
+    service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"
+    
+    # 내부 NLB를 사용하도록 설정
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    
+    # 헬스 체크 설정
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/ready"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "3100"
+spec:
+  type: LoadBalancer
+  selector:
+    # 이 부분은 이전에 확인한 loki-0 파드의 레이블과 일치해야 합니다.
+    app: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: 3100
+      protocol: TCP

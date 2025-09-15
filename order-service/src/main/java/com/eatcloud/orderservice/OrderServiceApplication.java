@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoCo
 import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication(exclude = {RedisRepositoriesAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.eatcloud.orderservice", "com.eatcloud.logging"})public class OrderServiceApplication {
+@ComponentScan(basePackages = {"com.eatcloud.orderservice", "com.eatcloud.logging"})
 @EnableRetry
 public class OrderServiceApplication {
 	public static void main(String[] args) {

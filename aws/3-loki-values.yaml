@@ -1,114 +1,53 @@
-# Loki Values for EKS Deployment
-# Optimized for Vector → Loki pipeline
+# 3-loki-values.yaml (게이트웨이 방식 최종 완성본)
 
+# 1. 배포 모드 및 다른 모드 비활성화
+deploymentMode: SingleBinary
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# 2. IRSA를 위한 서비스 계정 설정
+serviceAccount:
+  create: false
+  name: loki-sa # eksctl로 생성한 이름 사용
+
+# 3. singleBinary 배포 설정
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: false
+
+# 4. [핵심] Gateway를 활성화하고, Gateway의 서비스를 LoadBalancer로 설정
+gateway:
+  enabled: true
+  service:
+    type: LoadBalancer
+    port: 3100
+    targetPort: 80
+    annotations:
+      # Fargate 환경을 위한 핵심 설정
+      service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"
+      # 내부 NLB 설정
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+# 5. Loki 핵심 설정
 loki:
-  # Basic configuration
-  auth_enabled: false
-
-  server:
-    http_listen_port: 3100
-    grpc_listen_port: 9095
-
-  common:
-    path_prefix: /var/loki
-    storage:
-      filesystem:
-        chunks_directory: /var/loki/chunks
-        rules_directory: /var/loki/rules
-    replication_factor: 1
-    ring:
-      instance_addr: 127.0.0.1
-      kvstore:
-        store: inmemory
-
-  schema_config:
+  storage:
+    type: 's3'
+    bucketNames:
+      # 여기에 Loki 전용으로 생성한 S3 버킷 이름을 입력하세요.
+      chunks: "eatcloud-loki-storage-12345"
+      ruler: "eatcloud-loki-storage-12345"
+  schemaConfig:
     configs:
       - from: 2020-10-24
         store: boltdb-shipper
-        object_store: filesystem
+        object_store: s3
         schema: v11
         index:
           prefix: index_
           period: 24h
-
-  storage_config:
-    boltdb_shipper:
-      active_index_directory: /var/loki/boltdb-shipper-active
-      cache_location: /var/loki/boltdb-shipper-cache
-      cache_ttl: 24h
-      shared_store: filesystem
-    filesystem:
-      directory: /var/loki/chunks
-
-  compactor:
-    working_directory: /var/loki/boltdb-shipper-compactor
-    shared_store: filesystem
-
-  limits_config:
-    enforce_metric_name: false
-    reject_old_samples: true
-    reject_old_samples_max_age: 168h
-    ingestion_rate_mb: 32
-    ingestion_burst_size_mb: 64
-    max_streams_per_user: 10000
-    max_line_size: 256000
-    retention_period: 720h  # 30 days
-
-  chunk_store_config:
-    max_look_back_period: 0s
-
-  table_manager:
-    retention_deletes_enabled: true
-    retention_period: 720h
-
-# Deployment configuration
-deploymentMode: SingleBinary
-
-singleBinary:
-  replicas: 1
-
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 1000m
-      memory: 2Gi
-
-  persistence:
-    enabled: true
-    storageClass: gp2
-    size: 50Gi
-
-  nodeSelector: {}
-  tolerations: []
-
-  extraArgs:
-    - -config.expand-env=true
-
-  extraEnv:
-    - name: JAEGER_AGENT_HOST
-      value: ""
-    - name: JAEGER_SAMPLER_TYPE
-      value: ""
-
-# Services
-gateway:
-  enabled: false
-
-# Monitoring
-monitoring:
-  serviceMonitor:
-    enabled: false
-  selfMonitoring:
-    enabled: false
-    grafanaAgent:
-      installOperator: false
-
-# Test pods
-test:
-  enabled: false
-
-# Network policy
-networkPolicy:
-  enabled: false
