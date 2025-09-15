@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kinesis-consumer-script
+  namespace: monitoring
+data:
+  consumer.py: |
+    import boto3
+    import json
+    import requests
+    import time
+    import os
+    from datetime import datetime
+    
+    # 환경 변수
+    STREAM_NAME = os.environ.get('KINESIS_STREAM', 'eatcloud-logs')
+    LOKI_ENDPOINT = os.environ.get('

@@ -1,69 +1,109 @@
 #!/bin/bash
 
-# Loki 연결 문제 진단 스크립트
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-echo "=== Loki 연결 문제 진단 ==="
+echo -e "${BLUE}=== AWS CLI를 사용하여 VPC 및 보안 그룹 설정 ===${NC}"
 
-LOKI_ENDPOINT="http://k8s-dev-eatcloud-600fc1a967-383401301.ap-northeast-2.elb.amazonaws.com:3100"
+# 1. EKS 클러스터의 VPC ID 가져오기
+echo -e "${YELLOW}1. EKS 클러스터의 VPC ID 확인...${NC}"
+VPC_ID=$(aws eks describe-cluster \
+    --name eatcloud \
+    --region ap-northeast-2 \
+    --query 'cluster.resourcesVpcConfig.vpcId' \
+    --output text)
 
-echo "1. EKS 클러스터 연결 확인"
-kubectl config current-context
+if [ -z "$VPC_ID" ] || [ "$VPC_ID" == "null" ]; then
+    echo -e "${RED}❌ EKS 클러스터의 VPC ID를 찾을 수 없습니다. 클러스터 이름을 확인해주세요.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}   ✅ VPC ID: $VPC_ID${NC}"
 
-echo -e "\n2. Loki 서비스 상태 확인"
-kubectl get svc -n logging 2>/dev/null || {
-    echo "logging 네임스페이스가 없습니다. 다른 네임스페이스 확인:"
-    kubectl get svc -A | grep -i loki
-}
+# 2. Lambda 함수 보안 그룹 ID 가져오기
+echo -e "${YELLOW}2. Lambda 함수 보안 그룹 ID 확인...${NC}"
+LAMBDA_SG_ID=$(aws lambda get-function-configuration \
+    --function-name kinesis-stateless-to-loki \
+    --region ap-northeast-2 \
+    --query 'VpcConfig.SecurityGroupIds[0]' \
+    --output text)
 
-echo -e "\n3. Loki Pod 상태 확인" 
-kubectl get pods -n logging 2>/dev/null || {
-    echo "logging 네임스페이스가 없습니다. 다른 네임스페이스에서 Loki 찾기:"
-    kubectl get pods -A | grep -i loki
-}
+if [ -z "$LAMBDA_SG_ID" ] || [ "$LAMBDA_SG_ID" == "None" ]; then
+    echo -e "${RED}❌ Lambda 함수 보안 그룹 ID를 찾을 수 없습니다.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}   ✅ Lambda SG ID: $LAMBDA_SG_ID${NC}"
 
-echo -e "\n4. LoadBalancer 서비스 확인"
-kubectl get svc -A | grep LoadBalancer
+# 3. 기존 Loki 로드 밸런서 보안 그룹 ID 가져오기
+echo -e "${YELLOW}3. 기존 Loki 로드 밸런서 보안 그룹 ID 확인...${NC}"
+LOKI_LB_SG=$(aws ec2 describe-security-groups \
+    --region ap-northeast-2 \
+    --filters "Name=group-name,Values=loki-lb-ingress-sg" \
+    --query 'SecurityGroups[0].GroupId' \
+    --output text)
 
-echo -e "\n5. 현재 Loki 엔드포인트 연결 테스트"
-echo "엔드포인트: $LOKI_ENDPOINT"
+if [ -z "$LOKI_LB_SG" ] || [ "$LOKI_LB_SG" == "None" ]; then
+    echo -e "${RED}❌ 'loki-lb-ingress-sg' 보안 그룹을 찾을 수 없습니다. 수동으로 확인하거나 새로 생성해야 합니다.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}   ✅ Loki LB SG ID: $LOKI_LB_SG${NC}"
 
-# DNS 해결 확인
-echo -e "\nDNS 해결 확인:"
-nslookup k8s-dev-eatcloud-600fc1a967-383401301.ap-northeast-2.elb.amazonaws.com || echo "DNS 해결 실패"
+# 4. 기존 규칙 삭제 (재실행 시 중복 규칙 생성 방지)
+echo -e "${YELLOW}4. 기존 규칙 정리 (재실행 시 중복 방지)...${NC}"
+aws ec2 revoke-security-group-ingress \
+    --group-id $LOKI_LB_SG \
+    --region ap-northeast-2 \
+    --protocol tcp \
+    --port 3100 \
+    --source-group $LAMBDA_SG_ID 2>/dev/null
+echo -e "${GREEN}   ✅ Loki LB 인바운드 규칙 정리 완료${NC}"
 
-# 포트 연결 확인
-echo -e "\n포트 연결 확인:"
-nc -z -v k8s-dev-eatcloud-600fc1a967-383401301.ap-northeast-2.elb.amazonaws.com 3100 2>&1 || echo "포트 3100 연결 실패"
+aws ec2 revoke-security-group-egress \
+    --group-id $LAMBDA_SG_ID \
+    --region ap-northeast-2 \
+    --ip-permissions 'IpProtocol=tcp,FromPort=3100,ToPort=3100,UserIdGroupPairs=[{GroupId='$LOKI_LB_SG'}]' 2>/dev/null
+echo -e "${GREEN}   ✅ Lambda 아웃바운드 규칙 정리 완료${NC}"
 
-# HTTP 응답 확인 (타임아웃 5초)
-echo -e "\nHTTP 연결 테스트:"
-curl -v --connect-timeout 5 --max-time 10 "${LOKI_ENDPOINT}/ready" 2>&1 | head -20
 
-echo -e "\n=== 해결 방법 제안 ==="
+# 5. 새 인바운드 규칙 추가 (Lambda → Loki LB)
+echo -e "${YELLOW}5. 인바운드 규칙 추가 (Lambda → Loki)...${NC}"
+aws ec2 authorize-security-group-ingress \
+    --group-id $LOKI_LB_SG \
+    --protocol tcp \
+    --port 3100 \
+    --source-group $LAMBDA_SG_ID \
+    --region ap-northeast-2
+echo -e "${GREEN}   ✅ 인바운드 규칙 추가 완료: TCP 3100 포트, 소스 = Lambda SG${NC}"
 
-echo "6. Loki가 실제로 실행 중인지 확인"
-echo "다음 명령어들을 실행해서 Loki 상태를 확인하세요:"
+# 6. 아웃바운드 규칙 추가 (Loki → Lambda)
+echo -e "${YELLOW}6. 아웃바운드 규칙 추가 (Loki → Lambda)...${NC}"
+aws ec2 authorize-security-group-egress \
+    --group-id $LAMBDA_SG_ID \
+    --region ap-northeast-2 \
+    --ip-permissions 'IpProtocol=tcp,FromPort=3100,ToPort=3100,UserIdGroupPairs=[{GroupId='$LOKI_LB_SG'}]'
+echo -e "${GREEN}   ✅ 아웃바운드 규칙 추가 완료: TCP 3100 포트, 목적지 = Loki LB SG${NC}"
+
+# 7. Loki 로드 밸런서에 새 보안 그룹 연결
+echo -e "${YELLOW}7. Loki 로드 밸런서에 새 보안 그룹 연결...${NC}"
+LOKI_LB_ARN=$(aws elbv2 describe-load-balancers \
+    --region ap-northeast-2 \
+    --query "LoadBalancers[?contains(DNSName, 'k8s-monitori-lokiexte')].LoadBalancerArn" \
+    --output text)
+
+if [ -z "$LOKI_LB_ARN" ] || [ "$LOKI_LB_ARN" == "None" ]; then
+    echo -e "${RED}❌ Loki 로드 밸런서 ARN을 찾을 수 없습니다. 수동으로 확인해주세요.${NC}"
+    exit 1
+fi
+
+aws elbv2 set-security-groups \
+    --load-balancer-arn $LOKI_LB_ARN \
+    --security-groups $LOKI_LB_SG \
+    --region ap-northeast-2
+echo -e "${GREEN}   ✅ Loki 로드 밸런서에 보안 그룹 연결 완료${NC}"
+
 echo ""
-echo "# 모든 네임스페이스에서 Loki 찾기"
-echo "kubectl get pods -A | grep -i loki"
-echo ""
-echo "# Loki 서비스 찾기"  
-echo "kubectl get svc -A | grep -i loki"
-echo ""
-echo "# Loki 설치 확인 (Helm)"
-echo "helm list -A | grep -i loki"
-
-echo -e "\n7. 가능한 문제들:"
-echo "❌ Loki가 설치되지 않음"
-echo "❌ LoadBalancer가 생성되지 않음" 
-echo "❌ 보안 그룹에서 3100 포트 차단"
-echo "❌ Loki가 다른 포트에서 실행 중"
-echo "❌ 네트워크 연결 문제"
-
-echo -e "\n8. LoadBalancer 대신 포트 포워딩 사용 (임시 해결책):"
-echo "kubectl port-forward -n logging svc/loki 3100:3100"
-echo "그러면 Lambda에서 http://localhost:3100 대신:"
-echo "kubectl get nodes -o wide 로 노드 IP를 확인하고"
-echo "http://NODE_IP:3100 사용"
-
-echo -e "\n먼저 위의 명령어들을 실행해서 Loki 상태를 확인해주세요! 🔍"
+echo -e "${GREEN}✅ 모든 보안 그룹 설정이 완료되었습니다!${NC}"
+echo -e "${YELLOW}이제 몇 분 후 Lambda 함수가 Loki에 접속할 수 있는지 확인하세요.${NC}"
