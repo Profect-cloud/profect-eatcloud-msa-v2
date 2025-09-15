@@ -1,0 +1,38 @@
+plugins {
+    id 'application'
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.apache.flink:flink-streaming-java:1.15.4'
+    implementation 'org.apache.flink:flink-connector-kinesis:1.15.4'
+    implementation 'org.mongodb:mongodb-driver-sync:4.8.2'
+    implementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'com.eatcloud.EatCloudStreamProcessor'
+}
+
+jar {
+    archiveBaseName = 'kinesis-stream-processor'
+    manifest {
+        attributes 'Main-Class': 'com.eatcloud.EatCloudStreamProcessor'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+test {
+    useJUnitPlatform()
+}

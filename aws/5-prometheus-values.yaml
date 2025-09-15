@@ -1,4 +1,4 @@
-# Prometheus Values for EKS
+# Prometheus Values for EKS Fargate
 # kube-prometheus-stack configuration
 
 # Global settings
@@ -10,27 +10,30 @@ grafana:
   enabled: true
   adminPassword: "eatcloud-admin"
 
-  # Grafana datasources
+  # Grafana datasources - 수정된 Loki 설정
   additionalDataSources:
     - name: Loki
       type: loki
       url: http://loki:3100
       access: proxy
       isDefault: false
+      jsonData:
+        httpHeaderName1: 'X-Scope-OrgID'
+      secureJsonData:
+        httpHeaderValue1: '1'
 
-  # Grafana resources
+  # Grafana resources - INCREASED FOR STABILITY
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 200m
+      memory: 1Gi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 2Gi
 
+  # DISABLE PERSISTENCE FOR FARGATE
   persistence:
-    enabled: true
-    storageClassName: gp2
-    size: 10Gi
+    enabled: false
 
   service:
     type: ClusterIP
@@ -51,15 +54,15 @@ prometheus:
   enabled: true
 
   prometheusSpec:
-    # Storage
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: gp2
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 50Gi
+    # REMOVE STORAGE SPEC FOR FARGATE
+    # storageSpec:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       storageClassName: gp2
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 50Gi
 
     # Resources
     resources:
@@ -70,9 +73,8 @@ prometheus:
         memory: 2Gi
         cpu: 1000m
 
-    # Retention
-    retention: 30d
-    retentionSize: 45GB
+    # Retention (메모리 기반)
+    retention: 7d  # 30d에서 7d로 단축 (스토리지 없음)
 
     # Service discovery
     serviceMonitorSelectorNilUsesHelmValues: false
@@ -89,14 +91,15 @@ alertmanager:
   enabled: true
 
   alertmanagerSpec:
-    storage:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: gp2
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 5Gi
+    # REMOVE STORAGE FOR FARGATE
+    # storage:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       storageClassName: gp2
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 5Gi
 
     resources:
       requests:

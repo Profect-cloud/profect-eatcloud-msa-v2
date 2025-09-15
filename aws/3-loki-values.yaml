@@ -1,53 +1,68 @@
-# 3-loki-values.yaml (게이트웨이 방식 최종 완성본)
-
-# 1. 배포 모드 및 다른 모드 비활성화
-deploymentMode: SingleBinary
-read:
-  replicas: 0
-write:
-  replicas: 0
-backend:
-  replicas: 0
-
-# 2. IRSA를 위한 서비스 계정 설정
-serviceAccount:
-  create: false
-  name: loki-sa # eksctl로 생성한 이름 사용
-
-# 3. singleBinary 배포 설정
-singleBinary:
-  replicas: 1
-  persistence:
-    enabled: false
-
-# 4. [핵심] Gateway를 활성화하고, Gateway의 서비스를 LoadBalancer로 설정
-gateway:
-  enabled: true
-  service:
-    type: LoadBalancer
-    port: 3100
-    targetPort: 80
-    annotations:
-      # Fargate 환경을 위한 핵심 설정
-      service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"
-      # 내부 NLB 설정
-      service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
-      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-
-# 5. Loki 핵심 설정
-loki:
-  storage:
-    type: 's3'
-    bucketNames:
-      # 여기에 Loki 전용으로 생성한 S3 버킷 이름을 입력하세요.
-      chunks: "eatcloud-loki-storage-12345"
-      ruler: "eatcloud-loki-storage-12345"
-  schemaConfig:
-    configs:
-      - from: 2020-10-24
-        store: boltdb-shipper
-        object_store: s3
-        schema: v11
-        index:
-          prefix: index_
-          period: 24h
+  USER-SUPPLIED VALUES:
+  backend:
+    replicas: 0
+  deploymentMode: SingleBinary
+  gateway:
+    enabled: true
+    service:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+        service.beta.kubernetes.io/aws-load-balancer-target-type: ip
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      port: 3100
+      targetPort: 8080
+      type: LoadBalancer
+  loki:
+    commonConfig:
+      replication_factor: 1
+    ingester:
+      lifecycler:
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+    limits_config:
+      allow_structured_metadata: false
+    memberlist:
+      join_members: []
+    schemaConfig:
+      configs:
+        - from: "2020-10-24"
+          index:
+            period: 24h
+            prefix: index_
+          object_store: s3
+          schema: v11
+          store: boltdb-shipper
+    storage:
+      bucketNames:
+        chunks: eatcloud-loki-storage-12345
+        ruler: eatcloud-loki-storage-12345
+      s3:
+        endpoint: ""
+        region: ap-northeast-2
+      type: s3
+  read:
+    replicas: 0
+  serviceAccount:
+    create: false
+    name: loki-sa
+  singleBinary:
+    extraVolumeMounts:
+      - mountPath: /var/loki
+        name: loki-storage
+    extraVolumes:
+      - emptyDir: {}
+        name: loki-storage
+    persistence:
+      enabled: false
+    replicas: 1
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  write:
+    replicas: 0
