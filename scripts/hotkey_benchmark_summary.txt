@@ -1,0 +1,17 @@
+--- HOT KEY BENCHMARK SUMMARY ---
+BASE=http://localhost:8080
+MENU_ID=11111111-1111-1111-1111-111111111111
+
+reserve_ok:   0
+reserve_409:  0
+reserve_503:  0
+reserve_4xx:  0
+reserve_5xx:  0
+confirm_ok:   0
+confirm_err:  0
+
+reserve_p95:  449 ms
+reserve_p99:  0 ms
+confirm_p95:  493.85 ms
+confirm_p99:  0 ms
+---------------------------------

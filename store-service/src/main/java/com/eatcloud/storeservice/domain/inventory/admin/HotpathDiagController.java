@@ -39,7 +39,7 @@ public class HotpathDiagController {
     public Map<String,Object> db(@PathVariable UUID menuId) {
         try {
             var v = queries.getStock(menuId);
-            return Map.of("db", Map.of("available", v.available(), "reserved", v.reserved()));
+            return Map.of("db", Map.of("available", v.getAvailable(), "reserved", v.getReserved()));
         } catch (Exception e) {
             return Map.of("dbError", e.getClass().getSimpleName() + ": " + e.getMessage());
         }

@@ -51,8 +51,15 @@ public class MenuStockController {
     @GetMapping("/{menuId}")
     public StockResponseDto get(@PathVariable("menuId") UUID menuId) {
         var v = queryService.getStock(menuId);
-        return new StockResponseDto(v.available(), v.reserved());
+        return new StockResponseDto(v.getAvailable(), v.getReserved());
     }
+
+    @PostMapping("/cancel-after-confirm")
+    @ResponseStatus(HttpStatus.OK)
+    public void cancelAfterConfirm(@Valid @RequestBody CancelRequestDto req) {
+        inventoryService.cancelAfterConfirm(req.getOrderLineId(), req.getReason());
+    }
+
 
     // (선택) 헬스 체크용 핑
     @GetMapping("/ping")

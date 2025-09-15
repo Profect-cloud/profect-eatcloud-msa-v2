@@ -22,7 +22,7 @@ public class HotpathAdminController {
     @PostMapping("/seed/{menuId}")
     public void seed(@PathVariable UUID menuId) {
         var v = queries.getStock(menuId); // available/reserved를 리턴하는 메서드여야 함
-        hotpath.seedRedisStock(menuId, v.available(), v.reserved());
+        hotpath.seedRedisStock(menuId, v.getAvailable(), v.getReserved());
     }
 
     /** 핫키 on/off 토글 */
@@ -42,6 +42,6 @@ public class HotpathAdminController {
     @PostMapping("/refresh/{menuId}")
     public void refreshFromDb(@PathVariable UUID menuId) {
         var v = queries.getStock(menuId);
-        hotpath.seedRedisStock(menuId, v.available(), v.reserved());
+        hotpath.seedRedisStock(menuId, v.getAvailable(), v.getReserved());
     }
 }

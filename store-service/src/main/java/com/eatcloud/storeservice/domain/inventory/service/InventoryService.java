@@ -12,4 +12,6 @@ public interface InventoryService {
     void cancel(UUID orderLineId, String reason);
 
     void adjust(UUID menuId, int delta); // 관리자 증감 (+/-)
+
+    void cancelAfterConfirm(UUID orderLineId, String reason);
 }
