@@ -24,7 +24,6 @@ service:
 ingress:
   enabled: true
   className: alb        # ← nginx → alb 로 변경
-  host: ""              # 도메인 쓰면 입력, 없으면 빈 값 OK
   path: /
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing   # 내부면 internal
