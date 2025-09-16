@@ -5,7 +5,7 @@ kind: Deployment
 metadata:
   name: {{ include "app.fullname" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount | default 2 }}
   selector:
     matchLabels: { app: {{ include "app.fullname" . }} }
   template:
@@ -14,12 +14,12 @@ spec:
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{- toYaml .Values.imagePullSecrets | nindent 6 }}
+     {{ toYaml .Values.imagePullSecrets | indent 8 }}
       {{- end }}
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.service.port }}
 {{- end }}

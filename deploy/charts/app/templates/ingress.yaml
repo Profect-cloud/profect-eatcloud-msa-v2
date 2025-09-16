@@ -18,7 +18,11 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "app.fullname" . }}-stable
+                name: {{ if .Values.rollout.enabled -}}
+                        {{ include "app.fullname" . }}-stable
+                      {{- else -}}
+                        {{ include "app.fullname" . }}
+                      {{- end }}
                 port:
                   number: {{ .Values.service.port }}
 {{- end }}

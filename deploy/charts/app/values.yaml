@@ -9,7 +9,7 @@ rollout:
       servicePort: 8080
       rootService: auth-service-app
     nginx:
-      enabled: false
+      enabled: true
 
 image:
   repository: <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud-auth-service
