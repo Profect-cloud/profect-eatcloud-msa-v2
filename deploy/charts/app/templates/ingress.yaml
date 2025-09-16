@@ -18,9 +18,8 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ if .Values.rollout.enabled -}}
-                        {{ include "app.fullname" . }}-stable
-                      {{- end }}
+                # 한 줄로, else까지
+                name: {{ include "app.fullname" . }}{{- if .Values.rollout.enabled }}-stable{{ end }}
                 port:
                   number: {{ .Values.service.port }}
 {{- end }}
