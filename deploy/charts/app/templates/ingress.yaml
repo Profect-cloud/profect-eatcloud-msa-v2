@@ -20,8 +20,6 @@ spec:
               service:
                 name: {{ if .Values.rollout.enabled -}}
                         {{ include "app.fullname" . }}-stable
-                      {{- else -}}
-                        {{ include "app.fullname" . }}
                       {{- end }}
                 port:
                   number: {{ .Values.service.port }}
