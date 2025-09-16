@@ -23,6 +23,12 @@ service:
 
 ingress:
   enabled: true
-  className: nginx
-  host: auth.local
+  className: alb        # ← nginx → alb 로 변경
+  host: ""              # 도메인 쓰면 입력, 없으면 빈 값 OK
   path: /
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing   # 내부면 internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health   # 앱 경로에 맞게
