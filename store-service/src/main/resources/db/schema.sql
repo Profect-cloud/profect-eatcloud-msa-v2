@@ -207,18 +207,36 @@ CREATE INDEX IF NOT EXISTS idx_inv_res_order
     ON inventory_reservations(order_id);
 
 /* =========================
-   Outbox for ES/CQRS
+   Outbox for ES/CQRS (store-service)
    ========================= */
--- Outbox 테이블 정의
 CREATE TABLE IF NOT EXISTS p_outbox (
-                                        id UUID PRIMARY KEY,
-                                        event_type VARCHAR(100) NOT NULL,
-                                        aggregate_id UUID NOT NULL,
-                                        payload JSONB NOT NULL,
-                                        created_at TIMESTAMP NOT NULL,
-                                        sent BOOLEAN NOT NULL DEFAULT FALSE
+                                        id               UUID PRIMARY KEY,                 -- 앱에서 UUID 생성
+                                        event_type       VARCHAR(150) NOT NULL,           -- 예: stock.reserved / stock.released / stock.committed / stock.insufficient
+                                        aggregate_type   VARCHAR(100) NOT NULL,           -- 예: INVENTORY_ITEM / MENU / ORDER_LINE 등
+                                        aggregate_id     UUID NOT NULL,
+                                        payload          JSONB NOT NULL,                  -- 이벤트 바디
+                                        headers          JSONB,                           -- 옵션: correlationId 등 메타
+
+                                        created_at       TIMESTAMP     NOT NULL,
+                                        status           VARCHAR(20)   NOT NULL DEFAULT 'PENDING',  -- PENDING | SENT | FAILED
+                                        retry_count      INT           NOT NULL DEFAULT 0,
+                                        next_attempt_at  TIMESTAMPTZ,
+                                        published_at     TIMESTAMPTZ,
+
+    -- 레거시 호환(점진 폐기 가능)
+                                        sent             BOOLEAN       NOT NULL DEFAULT FALSE
 );
 
--- 발행 여부 + 생성시간 기준 인덱스 (배치 조회 최적화)
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_outbox_status
+    ON p_outbox(status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_at
+    ON p_outbox(next_attempt_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate
+    ON p_outbox(aggregate_type, aggregate_id);
+
+-- (레거시 쿼리 호환 유지)
 CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
     ON p_outbox(sent, created_at);

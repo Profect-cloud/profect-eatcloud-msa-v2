@@ -1,4 +1,6 @@
 package com.eatcloud.storeservice.domain.inventory.scheduler;
+import com.eatcloud.storeservice.domain.inventory.StockEvents;
+import com.eatcloud.storeservice.domain.outbox.service.OutboxAppender;
 
 import com.eatcloud.storeservice.domain.inventory.entity.InventoryReservation;
 import com.eatcloud.storeservice.domain.inventory.repository.InventoryReservationRepository;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -26,6 +29,12 @@ public class InventoryTtlScheduler {
     private final InventoryReservationRepository resRepo;
     private final InventoryStockRepository stockRepo;
     private final RedissonClient redisson;
+
+    // ✨ OutboxAppender 주입
+    private final OutboxAppender outbox;
+
+    // ✨ aggregateType 상수
+    private static final String AGG_TYPE = "INVENTORY_ITEM";
 
     @Value("${inventory.ttl.enabled:true}")
     private boolean enabled;
@@ -104,7 +113,6 @@ public class InventoryTtlScheduler {
 
     @Transactional
     protected void cancelAndRestoreInTx(InventoryReservation r) {
-        // 최신 상태 확인(동시에 다른 곳에서 처리됐을 수 있음)
         InventoryReservation cur = resRepo.findByOrderLineId(r.getOrderLineId())
                 .orElse(null);
         if (cur == null) return; // 이미 정리됨
@@ -117,15 +125,31 @@ public class InventoryTtlScheduler {
         cur.setReason("TTL_EXPIRED");
         resRepo.save(cur);
 
-        // 2) 재고 복구(CAS) - is_unlimited=false 조건은 repo 쿼리 자체에 포함돼있다고 가정
+        // 2) 재고 복구(CAS)
         int updated = stockRepo.release(cur.getMenuId(), cur.getQty());
         if (updated == 0) {
-            // 논리적으로는 거의 불가능하지만, 정책상 경고만 남기고 넘어간다(멱등 보장)
             log.warn("TTL restore CAS updated=0 menuId={} qty={}", cur.getMenuId(), cur.getQty());
         }
 
-        // 3) (선택) 로그/아웃박스 기록
-        // stockLogRepo.save( ... action=CANCEL, change=+qty, reason=TTL_EXPIRED ...)
-        // outboxRepo.save( ... event='stock.released' ... )
+        // ✨ 3) 여기서 Outbox로 'stock.released' 발행 (보상 트랜잭션 표준화)
+        outbox.append(
+                StockEvents.RELEASED,             // eventType: stock.released
+                AGG_TYPE,                         // aggregateType
+                cur.getMenuId(),                  // aggregateId
+                Map.of(
+                        "menuId",     cur.getMenuId(),
+                        "orderId",    cur.getOrderId(),
+                        "orderLineId",cur.getOrderLineId(),
+                        "qty",        cur.getQty(),
+                        "reason",     "TTL_EXPIRED",
+                        "occurredAt", LocalDateTime.now(),
+                        "eventVersion", 1
+                ),
+                Map.of(
+                        "correlationId", cur.getOrderId().toString()
+                )
+        );
     }
+
+
 }
