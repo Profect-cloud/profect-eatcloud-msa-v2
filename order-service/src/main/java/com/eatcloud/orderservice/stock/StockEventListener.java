@@ -1,6 +1,7 @@
 package com.eatcloud.orderservice.stock;
 
 import com.eatcloud.orderservice.read.*;
+import com.eatcloud.orderservice.service.OrderCompensationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,9 @@ public class StockEventListener {
     private final ObjectMapper om;
     private final OrderLineProjectionRepository projectionRepo;
     private final ProcessedEventRepository processedRepo;
+
+    // 필드 주입
+    private final OrderCompensationService compensationService;
 
     @KafkaListener(
             topics = "${inventory.topic:stock-events}",
@@ -75,12 +79,17 @@ public class StockEventListener {
             );
 
             switch (evt.getEventType()) {
-                case "stock.reserved"     -> view.setStockStatus("RESERVED");
-                case "stock.committed"    -> view.setStockStatus("COMMITTED");
-                case "stock.released"     -> view.setStockStatus("RELEASED");
-                case "stock.insufficient" -> view.setStockStatus("INSUFFICIENT");
+                case "stock.reserved"      -> view.setStockStatus("RESERVED");
+                case "stock.committed"     -> view.setStockStatus("COMMITTED");
+                case "stock.released",
+                     "stock.returned",
+                     "stock.canceled"      -> view.setStockStatus("RELEASED"); // 반납 계열
+                case "stock.insufficient" -> {
+                    view.setStockStatus("INSUFFICIENT");
+                    // 보상 트리거 (사유는 고정 상수 사용)
+                    compensationService.compensateForStockShortage(orderId, "STOCK_INSUFFICIENT");
+                }
                 default -> {
-                    log.debug("stock-event ignore: unknown type={} lineId={}", evt.getEventType(), lineId);
                     ack.acknowledge();
                     return;
                 }

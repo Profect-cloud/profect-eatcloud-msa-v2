@@ -373,4 +373,10 @@ public class OrderService {
 
         log.info("주문 상태 업데이트 완료: orderId={}, newStatus={}", orderId, statusCode);
     }
+
+    public boolean isFinalized(Order o) {
+        if (o == null || o.getOrderStatusCode() == null) return false;
+        String code = o.getOrderStatusCode().getCode();
+        return "CANCELLED".equals(code) || "COMPLETED".equals(code) || "FAILED".equals(code);
+    }
 }
