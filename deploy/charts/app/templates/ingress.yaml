@@ -18,7 +18,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "app.fullname" . }}-stable   # ★ 여기!
+                name: {{ include "app.fullname" . }}-stable
                 port:
                   number: {{ .Values.service.port }}
 {{- end }}
