@@ -90,10 +90,9 @@ public class AuthService {
 			}
 		} catch (Exception ignored) {}
 
-		return null; // 어디에서도 찾지 못함
+		return null;
 	}
 
-	// 2) 회원가입 (Customer 예시)
 	public void tempSignup(SignupRequestDto req) {
 		// role에 따라 중복 검사
 		if ("manager".equals(req.getRole())) {
