@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "30"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"payment-service","version":"v1"},"name":"payment-service","namespace":"dev"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"payment-service"}},"template":{"metadata":{"labels":{"app":"payment-service","version":"v1"}},"spec":{"containers":[{"env":[{"name":"SPRING_PROFILES_ACTIVE","value":"aws"},{"name":"LOG_PATH","value":"/var/log/app"},{"name":"SPRING_APPLICATION_NAME","value":"payment-service"},{"name":"LOGGING_RECOMMENDATION_ENABLED","value":"true"},{"name":"PAYMENT_DB_HOST","value":"eatcloud-dev-payment.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com"},{"name":"PAYMENT_DB_NAME","value":"paymentdb"}],"envFrom":[{"configMapRef":{"name":"complete-configmap"}},{"secretRef":{"name":"app-secrets"}}],"image":"536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/payment-service:latest","imagePullPolicy":"Always","name":"payment-service","ports":[{"containerPort":8085,"name":"http"}],"resources":{"limits":{"cpu":"500m","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"volumeMounts":[{"mountPath":"/var/log/app","name":"app-logs"}]},{"env":[{"name":"AWS_REGION","value":"ap-northeast-2"},{"name":"AWS_DEFAULT_REGION","value":"ap-northeast-2"}],"image":"fluent/fluent-bit:2.2.0","imagePullPolicy":"Always","livenessProbe":{"httpGet":{"path":"/api/v1/health","port":2020},"initialDelaySeconds":30,"periodSeconds":30},"name":"fluent-bit","ports":[{"containerPort":2020,"name":"http-metrics"}],"readinessProbe":{"httpGet":{"path":"/api/v1/health","port":2020},"initialDelaySeconds":10,"periodSeconds":10},"resources":{"limits":{"cpu":"200m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"volumeMounts":[{"mountPath":"/fluent-bit/etc","name":"fluent-bit-config"},{"mountPath":"/var/log/app","name":"app-logs","readOnly":true},{"mountPath":"/fluent-bit/tail","name":"fluent-bit-db"}]}],"serviceAccountName":"fluent-bit-service-account","volumes":[{"emptyDir":{},"name":"app-logs"},{"emptyDir":{},"name":"fluent-bit-db"},{"configMap":{"name":"fluent-bit-config"},"name":"fluent-bit-config"}]}}}}
+  creationTimestamp: "2025-09-12T05:48:12Z"
+  generation: 30
+  labels:
+    app: payment-service
+    version: v1
+  name: payment-service
+  namespace: dev
+  resourceVersion: "4457963"
+  uid: 7792fd09-43df-4a27-8780-6b0544240dc4
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: payment-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2025-09-16T16:45:52+09:00"
+      creationTimestamp: null
+      labels:
+        app: payment-service
+        version: v1
+    spec:
+      containers:
+      - env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://eatcloud-dev-payment.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com:5432/paymentdb
+        - name: JAVA_OPTS
+          value: -Xms512m -Xmx1536m -XX:+UseG1GC
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: DB_PASSWORD
+              name: db-secret
+        - name: SPRING_PROFILES_ACTIVE
+          value: aws
+        - name: LOG_PATH
+          value: /var/log/app
+        - name: SPRING_APPLICATION_NAME
+          value: payment-service
+        - name: LOGGING_RECOMMENDATION_ENABLED
+          value: "true"
+        - name: PAYMENT_DB_HOST
+          value: eatcloud-dev-payment.cnikgsy08gto.ap-northeast-2.rds.amazonaws.com
+        - name: PAYMENT_DB_NAME
+          value: paymentdb
+        envFrom:
+        - configMapRef:
+            name: complete-configmap
+        - secretRef:
+            name: app-secrets
+        image: 536580887516.dkr.ecr.ap-northeast-2.amazonaws.com/eatcloud/payment-service:latest
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8087
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: payment-service
+        ports:
+        - containerPort: 8087
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8087
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/log/app
+          name: app-logs
+      - env:
+        - name: AWS_REGION
+          value: ap-northeast-2
+        - name: AWS_DEFAULT_REGION
+          value: ap-northeast-2
+        image: fluent/fluent-bit:2.2.0
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: fluent-bit
+        ports:
+        - containerPort: 2020
+          name: http-metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/v1/health
+            port: 2020
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /fluent-bit/etc
+          name: fluent-bit-config
+        - mountPath: /var/log/app
+          name: app-logs
+          readOnly: true
+        - mountPath: /fluent-bit/tail
+          name: fluent-bit-db
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: fluent-bit-service-account
+      serviceAccountName: fluent-bit-service-account
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: app-logs
+      - emptyDir: {}
+        name: fluent-bit-db
+      - configMap:
+          defaultMode: 420
+          name: fluent-bit-config
+        name: fluent-bit-config
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2025-09-16T00:01:39Z"
+    lastUpdateTime: "2025-09-16T00:01:39Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2025-09-16T07:55:53Z"
+    lastUpdateTime: "2025-09-16T07:55:53Z"
+    message: ReplicaSet "payment-service-6648f957f8" has timed out progressing.
+    reason: ProgressDeadlineExceeded
+    status: "False"
+    type: Progressing
+  observedGeneration: 30
+  readyReplicas: 1
+  replicas: 2
+  unavailableReplicas: 1
+  updatedReplicas: 1

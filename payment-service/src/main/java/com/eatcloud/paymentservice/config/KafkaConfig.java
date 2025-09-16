@@ -33,6 +33,10 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 
+        // TLS 설정 (MSK 요구사항)
+        configProps.put("security.protocol", "SSL");
+        configProps.put("ssl.endpoint.identification.algorithm", "https");
+
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
         configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000);
@@ -78,6 +82,17 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        
+        // TLS 설정 (MSK 요구사항)
+        configProps.put("security.protocol", "SSL");
+        configProps.put("ssl.endpoint.identification.algorithm", "https");
+
+        // 메모리 최적화 설정
+        configProps.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 1024 * 1024 * 5); // 5MB (기본 50MB)
+        configProps.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 1024 * 512); // 512KB (기본 1MB)
+        configProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100); // 기본 500
+        configProps.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, 32 * 1024); // 32KB (기본 64KB)
+        configProps.put(ConsumerConfig.SEND_BUFFER_CONFIG, 32 * 1024); // 32KB
 
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);

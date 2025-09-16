@@ -36,11 +36,25 @@ public class JwtTokenProvider {
 
 	public JwtTokenProvider(@Value("${jwt.secret}") String secret,
 		@Qualifier("customUserDetailsService") UserDetailsService userDetailsService) {
-		this.secretKey = Keys.hmacShaKeyFor(secret.getBytes());
+
+		// JWT Secret 디버깅 로그 추가
+		logger.info("JWT Secret 길이: {}", secret != null ? secret.length() : "null");
+		logger.info("JWT Secret 첫 20자: {}", secret != null && secret.length() > 20 ? secret.substring(0, 20) + "..." : secret);
+
+		try {
+			this.secretKey = Keys.hmacShaKeyFor(secret.getBytes());
+			logger.info("JWT SecretKey 생성 성공: {}", secretKey.getAlgorithm());
+		} catch (Exception e) {
+			logger.error("JWT SecretKey 생성 실패: {}", e.getMessage());
+			throw e;
+		}
+
 		this.userDetailsService = userDetailsService;
 	}
 
 	public String createToken(UUID id, String type) {
+		logger.debug("토큰 생성 시작 - ID: {}, Type: {}", id, type);
+
 		Date now = new Date();
 		Date expiryDate = new Date(now.getTime() + tokenValidity);
 
@@ -51,14 +65,27 @@ public class JwtTokenProvider {
 			default -> Arrays.asList("USER");
 		};
 
-		return Jwts.builder()
-			.setSubject(String.valueOf(id))
-			.claim("type", type)
-			.claim("roles", roles)
-			.setIssuedAt(now)
-			.setExpiration(expiryDate)
-			.signWith(secretKey)
-			.compact();
+		logger.debug("토큰 생성 정보 - Subject: {}, Type: {}, Roles: {}, IssuedAt: {}, ExpiresAt: {}",
+			id, type, roles, now, expiryDate);
+
+		try {
+			String token = Jwts.builder()
+				.setSubject(String.valueOf(id))
+				.claim("type", type)
+				.claim("roles", roles)
+				.setIssuedAt(now)
+				.setExpiration(expiryDate)
+				.signWith(secretKey, SignatureAlgorithm.HS256)
+				.compact();
+
+			logger.debug("토큰 생성 완료 - 길이: {}, 첫 50자: {}",
+				token.length(), token.length() > 50 ? token.substring(0, 50) + "..." : token);
+
+			return token;
+		} catch (Exception e) {
+			logger.error("토큰 생성 실패: {}", e.getMessage(), e);
+			throw new RuntimeException("JWT 토큰 생성 실패", e);
+		}
 	}
 
 	public String createRefreshToken(UUID id, String role) {
@@ -75,25 +102,38 @@ public class JwtTokenProvider {
 	}
 
 	public UUID getIdFromToken(String token) {
-		Claims claims = Jwts.parserBuilder()
-			.setSigningKey(secretKey)
-			.build()
-			.parseClaimsJws(token)
-			.getBody();
-		return UUID.fromString(claims.getSubject());
-
+		try {
+			Claims claims = Jwts.parserBuilder()
+				.setSigningKey(secretKey)
+				.build()
+				.parseClaimsJws(token)
+				.getBody();
+			return UUID.fromString(claims.getSubject());
+		} catch (Exception e) {
+			logger.error("토큰에서 사용자 ID 추출 실패: {}", e.getMessage());
+			throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+		}
 	}
 
 	public String getTypeFromToken(String token) {
-		Claims claims = Jwts.parserBuilder()
-			.setSigningKey(secretKey)
-			.build()
-			.parseClaimsJws(token)
-			.getBody();
-		return claims.get("type", String.class);
+		try {
+			Claims claims = Jwts.parserBuilder()
+				.setSigningKey(secretKey)
+				.build()
+				.parseClaimsJws(token)
+				.getBody();
+			return claims.get("type", String.class);
+		} catch (Exception e) {
+			logger.error("토큰에서 사용자 타입 추출 실패: {}", e.getMessage());
+			throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+		}
 	}
 
 	public boolean validateToken(String token) {
+		logger.debug("토큰 검증 시작 - 길이: {}, 첫 50자: {}",
+			token != null ? token.length() : "null",
+			token != null && token.length() > 50 ? token.substring(0, 50) + "..." : token);
+
 		try {
 			Claims claims = Jwts.parserBuilder()
 				.setSigningKey(secretKey)
@@ -105,7 +145,13 @@ public class JwtTokenProvider {
 			Date expiration = claims.getExpiration();
 			Date now = new Date();
 
-			return expiration.getTime() - now.getTime() >= refreshThreshold;
+			logger.debug("토큰 파싱 성공 - Subject: {}, Type: {}, ExpiresAt: {}, Now: {}",
+				claims.getSubject(), claims.get("type"), expiration, now);
+
+			// 토큰이 아직 유효한지 확인 (만료 시간이 현재 시간보다 이후인지)
+			boolean isValid = expiration.getTime() > now.getTime();
+			logger.debug("토큰 유효성 결과: {}", isValid);
+			return isValid;
 		} catch (ExpiredJwtException e) {
 			logger.warn("JWT 만료됨: {}", e.getMessage());
 		} catch (UnsupportedJwtException e) {
@@ -116,6 +162,8 @@ public class JwtTokenProvider {
 			logger.error("JWT 서명 오류: {}", e.getMessage());
 		} catch (IllegalArgumentException e) {
 			logger.warn("JWT가 비어 있음: {}", e.getMessage());
+		} catch (Exception e) {
+			logger.error("예상치 못한 토큰 검증 오류: {}", e.getMessage(), e);
 		}
 		return false;
 	}
@@ -129,12 +177,17 @@ public class JwtTokenProvider {
 	}
 
 	public long getExpirationTime(String token) {
-		Claims claims = Jwts.parserBuilder()
+		try {
+			Claims claims = Jwts.parserBuilder()
 				.setSigningKey(secretKey)
 				.build()
 				.parseClaimsJws(token)
 				.getBody();
-		return claims.getExpiration().getTime();
+			return claims.getExpiration().getTime();
+		} catch (Exception e) {
+			logger.error("토큰에서 만료 시간 추출 실패: {}", e.getMessage());
+			throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+		}
 	}
 }
 
