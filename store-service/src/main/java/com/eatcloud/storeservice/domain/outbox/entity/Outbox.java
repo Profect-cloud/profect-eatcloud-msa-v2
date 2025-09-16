@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "outbox")
+@Table(name = "p_outbox")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Outbox {
     @Id
@@ -30,6 +30,5 @@ public class Outbox {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "published_at")
-    private LocalDateTime publishedAt;
+    private boolean sent;
 }

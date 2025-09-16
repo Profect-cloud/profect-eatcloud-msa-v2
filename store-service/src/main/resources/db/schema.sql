@@ -209,14 +209,16 @@ CREATE INDEX IF NOT EXISTS idx_inv_res_order
 /* =========================
    Outbox for ES/CQRS
    ========================= */
-CREATE TABLE IF NOT EXISTS outbox (
-                                      id           UUID PRIMARY KEY,
-                                      event_type   VARCHAR(50) NOT NULL,   -- stock.reserved / stock.released / stock.adjusted
-                                      aggregate_id UUID NOT NULL,          -- menu_id or reservation_id
-                                      payload      JSONB NOT NULL,         -- {menuId, orderId, orderLineId, qty, reason, occurredAt, eventVersion}
-                                      created_at   TIMESTAMP NOT NULL DEFAULT now(),
-                                      published_at TIMESTAMP
+-- Outbox 테이블 정의
+CREATE TABLE IF NOT EXISTS p_outbox (
+                                        id UUID PRIMARY KEY,
+                                        event_type VARCHAR(100) NOT NULL,
+                                        aggregate_id UUID NOT NULL,
+                                        payload JSONB NOT NULL,
+                                        created_at TIMESTAMP NOT NULL,
+                                        sent BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_unpublished
-    ON outbox (published_at) WHERE published_at IS NULL;
+-- 발행 여부 + 생성시간 기준 인덱스 (배치 조회 최적화)
+CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
+    ON p_outbox(sent, created_at);

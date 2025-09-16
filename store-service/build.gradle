@@ -103,6 +103,7 @@ dependencies {
     annotationProcessor 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 
     implementation "org.springframework.cloud:spring-cloud-starter-loadbalancer"
+    implementation 'org.springframework.kafka:spring-kafka'
 
     implementation 'io.micrometer:micrometer-registry-prometheus'
 

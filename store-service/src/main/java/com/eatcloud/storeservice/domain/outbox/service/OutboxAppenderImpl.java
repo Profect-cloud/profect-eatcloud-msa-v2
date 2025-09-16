@@ -30,6 +30,7 @@ public class OutboxAppenderImpl implements OutboxAppender {
                     .aggregateId(aggregateId)
                     .payload(json)                // 🔴 JsonNode 를 그대로 저장
                     .createdAt(LocalDateTime.now())
+                    .sent(false)
                     .build();
             repo.save(o);
         } catch (Exception e) {
