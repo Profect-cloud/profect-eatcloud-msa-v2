@@ -1,3 +1,4 @@
+// com.eatcloud.storeservice.domain.outbox.repository.OutboxRepository.java
 package com.eatcloud.storeservice.domain.outbox.repository;
 
 import com.eatcloud.storeservice.domain.outbox.entity.Outbox;
@@ -10,7 +11,7 @@ import java.util.UUID;
 
 public interface OutboxRepository extends JpaRepository<Outbox, UUID> {
 
-    // 배치 픽업: 상태 PENDING & 재시도 만기, 경쟁 회피
+    /** 배치 픽업: 상태 PENDING & 재시도 만기, 경쟁 회피 */
     @Query(value = """
         SELECT * FROM p_outbox
          WHERE status = 'PENDING'
@@ -21,20 +22,19 @@ public interface OutboxRepository extends JpaRepository<Outbox, UUID> {
         """, nativeQuery = true)
     List<Outbox> pickBatchForPublish(@Param("limit") int limit);
 
-    // 발행 성공 마킹
-    @Modifying
+    /** 발행 성공 마킹 (벌크 업데이트 후 flush/clear) */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
       UPDATE Outbox o
          SET o.status = 'SENT',
              o.publishedAt = CURRENT_TIMESTAMP,
-             o.retryCount = o.retryCount + 1,
              o.sent = true
        WHERE o.id = :id
     """)
     int markSent(@Param("id") UUID id);
 
-    // 재시도 예약
-    @Modifying
+    /** 재시도 예약 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
       UPDATE Outbox o
          SET o.status = 'PENDING',
@@ -44,8 +44,8 @@ public interface OutboxRepository extends JpaRepository<Outbox, UUID> {
     """)
     int markRetry(@Param("id") UUID id, @Param("next") LocalDateTime next);
 
-    // 실패 종결
-    @Modifying
+    /** 실패 종결 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
       UPDATE Outbox o
          SET o.status = 'FAILED',
@@ -54,7 +54,4 @@ public interface OutboxRepository extends JpaRepository<Outbox, UUID> {
        WHERE o.id = :id
     """)
     int markFailed(@Param("id") UUID id);
-
-    // (레거시) 필요하면 잠시 유지 가능
-    // List<Outbox> findTop50BySentFalseOrderByCreatedAtAsc();
 }

@@ -1,7 +1,8 @@
+// com.eatcloud.storeservice.domain.outbox.publisher.OutboxKafkaPublisher.java
 package com.eatcloud.storeservice.domain.outbox.publisher;
 
 import com.eatcloud.storeservice.domain.outbox.entity.Outbox;
-import com.eatcloud.storeservice.domain.outbox.repository.OutboxRepository;
+import com.eatcloud.storeservice.domain.outbox.service.OutboxCommandService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,8 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -26,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class OutboxKafkaPublisher {
 
-    private final OutboxRepository repo;
+    private final OutboxCommandService command;     // ✅ 트랜잭션 적용되는 서비스
     private final KafkaTemplate<String, String> kafka;
     private final ObjectMapper om;
 
@@ -44,13 +43,13 @@ public class OutboxKafkaPublisher {
 
     @Scheduled(fixedDelayString = "${inventory.outbox.publisher.interval-ms:5000}")
     public void publish() {
-        List<Outbox> batch = pickBatch(batchSize);
+        List<Outbox> batch = command.pickBatch(batchSize); // ✅ REQUIRES_NEW TX 내부
         if (batch.isEmpty()) return;
 
         for (Outbox o : batch) {
             try {
-                // body 직렬화
-                String key = o.getAggregateId().toString(); // 파티션키(동일 aggregate 순서 보장)
+                // Body 직렬화
+                String key = o.getAggregateId().toString(); // 파티션 키
                 String value = om.writeValueAsString(Map.of(
                         "id",            o.getId(),
                         "eventType",     o.getEventType(),
@@ -62,7 +61,7 @@ public class OutboxKafkaPublisher {
 
                 ProducerRecord<String, String> record = new ProducerRecord<>(topic, key, value);
 
-                // 표준 헤더 (headers JSON에 correlationId 같은 게 있으면 같이 넣어줌)
+                // 헤더
                 addHeader(record, "eventType",     o.getEventType());
                 addHeader(record, "aggregateType", o.getAggregateType());
                 addHeader(record, "aggregateId",   o.getAggregateId().toString());
@@ -75,8 +74,8 @@ public class OutboxKafkaPublisher {
                 // 동기 전송
                 kafka.send(record).get();
 
-                // 성공 마킹
-                markSent(o.getId());
+                // 성공 마킹 (별도 트랜잭션)
+                command.markSent(o.getId());
                 log.info("✅ Kafka publish success: id={} type={} key={}", o.getId(), o.getEventType(), key);
 
             } catch (Exception e) {
@@ -86,28 +85,19 @@ public class OutboxKafkaPublisher {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected List<Outbox> pickBatch(int limit) {
-        return repo.pickBatchForPublish(limit);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void markSent(UUID id) {
-        repo.markSent(id);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /** 실패 시 재시도/실패 전환 (DB 갱신은 서비스에서 트랜잭션 처리) */
     protected void onFailure(Outbox o) {
         int next = o.getRetryCount() + 1;
         if (next >= maxRetry) {
-            repo.markFailed(o.getId());
+            command.markFailed(o.getId());
             log.error("🟥 outbox moved to FAILED id={} retryCount={}", o.getId(), next);
             return;
         }
         long jitter = ThreadLocalRandom.current().nextLong(0, baseBackoffMs / 2);
         long delayMs = (long) (baseBackoffMs * Math.pow(2, Math.min(o.getRetryCount(), 5))) + jitter;
         LocalDateTime nextTime = LocalDateTime.now().plusNanos(delayMs * 1_000_000);
-        repo.markRetry(o.getId(), nextTime);
+
+        command.markRetry(o.getId(), nextTime);
     }
 
     private void addHeader(ProducerRecord<String, String> rec, String key, String val) {

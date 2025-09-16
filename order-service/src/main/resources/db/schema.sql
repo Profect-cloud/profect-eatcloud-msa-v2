@@ -132,3 +132,21 @@ CREATE TABLE IF NOT EXISTS order_type_codes (
     deleted_at TIMESTAMP,
     deleted_by VARCHAR(100)
 );
+
+CREATE TABLE IF NOT EXISTS order_line_projection (
+                                                     order_line_id UUID PRIMARY KEY,
+                                                     order_id      UUID NOT NULL,
+                                                     menu_id       UUID NOT NULL,
+                                                     qty           INT  NOT NULL,
+                                                     stock_status  VARCHAR(32) NOT NULL,   -- RESERVED | COMMITTED | RELEASED | INSUFFICIENT
+                                                     updated_at    TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS processed_events (
+                                                event_id     UUID PRIMARY KEY,
+                                                processed_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- 조회 최적화(선택)
+CREATE INDEX IF NOT EXISTS idx_olp_order ON order_line_projection(order_id);
+CREATE INDEX IF NOT EXISTS idx_olp_menu  ON order_line_projection(menu_id);
