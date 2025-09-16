@@ -4,30 +4,39 @@ kind: Rollout
 metadata:
   name: {{ include "app.fullname" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount | default 2 }}
   revisionHistoryLimit: 2
   selector:
-    matchLabels: { app: {{ include "app.fullname" . }} }
+    matchLabels:
+      app: {{ include "app.fullname" . }}
   template:
     metadata:
-      labels: { app: {{ include "app.fullname" . }} }
+      labels:
+        app: {{ include "app.fullname" . }}
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{- toYaml .Values.imagePullSecrets | nindent 6 }}
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
       {{- end }}
       containers:
         - name: app
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports: [{ containerPort: {{ .Values.service.port }} }]
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
   strategy:
     canary:
-      canaryService: {{ include "app.fullname" . }}-canary
+      # stable/canary 서비스명은 아래 Service 템플릿과 일치해야 함
       stableService: {{ include "app.fullname" . }}-stable
+      canaryService: {{ include "app.fullname" . }}-canary
       trafficRouting:
-        nginx:
-          stableIngress: {{ include "app.fullname" . }}   # 아래 Ingress 이름과 동일
+        alb:
+          ingress: {{ include "app.fullname" . }}     # 아래 ingress 이름과 동일
+          servicePort: {{ .Values.service.port }}
       steps:
-      {{- toYaml .Values.rollout.steps | nindent 6 }}
+        - setWeight: 10
+        - pause: { duration: 60 }
+        - setWeight: 50
+        - pause: {}
+        - setWeight: 100
 {{- end }}
