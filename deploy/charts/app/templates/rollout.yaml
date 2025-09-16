@@ -1,42 +1,42 @@
 {{- if .Values.rollout.enabled }}
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
-metadata:
-  name: {{ include "app.fullname" . }}
-spec:
-  replicas: {{ .Values.replicaCount | default 2 }}
-  revisionHistoryLimit: 2
-  selector:
-    matchLabels:
-      app: {{ include "app.fullname" . }}
-  template:
-    metadata:
-      labels:
+  apiVersion: argoproj.io/v1alpha1
+  kind: Rollout
+  metadata:
+    name: {{ include "app.fullname" . }}
+  spec:
+    replicas: {{ .Values.replicaCount | default 2 }}
+    revisionHistoryLimit: 2
+    selector:
+      matchLabels:
         app: {{ include "app.fullname" . }}
-    spec:
-      {{- if .Values.imagePullSecrets }}
-      imagePullSecrets:
-{{ toYaml .Values.imagePullSecrets | indent 8 }}
-      {{- end }}
-      containers:
-        - name: app
-          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
-          ports:
-            - containerPort: {{ .Values.service.port }}
-  strategy:
-    canary:
-      # stable/canary 서비스명은 아래 Service 템플릿과 일치해야 함
-      stableService: {{ include "app.fullname" . }}-stable
-      canaryService: {{ include "app.fullname" . }}-canary
-      trafficRouting:
-        alb:
-          ingress: {{ include "app.fullname" . }}     # 아래 ingress 이름과 동일
-          servicePort: {{ .Values.service.port }}
-      steps:
-        - setWeight: 10
-        - pause: { duration: 60 }
-        - setWeight: 50
-        - pause: { duration: 60 }
-        - setWeight: 100
+    template:
+      metadata:
+        labels:
+          app: {{ include "app.fullname" . }}
+      spec:
+        {{- if .Values.imagePullSecrets }}
+        imagePullSecrets:
+  {{ toYaml .Values.imagePullSecrets | indent 8 }}
+        {{- end }}
+        containers:
+          - name: app
+            image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+            ports:
+              - containerPort: {{ .Values.service.port }}
+    strategy:
+      canary:
+        # stable/canary 서비스명은 아래 Service 템플릿과 일치해야 함
+        stableService: {{ include "app.fullname" . }}-stable
+        canaryService: {{ include "app.fullname" . }}-canary
+        trafficRouting:
+          alb:
+            ingress: {{ include "app.fullname" . }}     # 아래 ingress 이름과 동일
+            servicePort: {{ .Values.service.port }}
+        steps:
+          - setWeight: 10
+          - pause: { duration: 60 }
+          - setWeight: 50
+          - pause: { duration: 60 }
+          - setWeight: 100
 {{- end }}
