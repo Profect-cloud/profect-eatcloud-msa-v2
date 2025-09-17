@@ -152,3 +152,5 @@ CREATE TABLE IF NOT EXISTS processed_events (
 -- 조회 최적화(선택)
 CREATE INDEX IF NOT EXISTS idx_olp_order ON order_line_projection(order_id);
 CREATE INDEX IF NOT EXISTS idx_olp_menu  ON order_line_projection(menu_id);
+
+

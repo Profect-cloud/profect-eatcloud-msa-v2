@@ -243,20 +243,35 @@ CREATE INDEX IF NOT EXISTS idx_outbox_aggregate
 CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
     ON p_outbox(sent, created_at);
 
-CREATE TABLE stock_events (
-                              id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                              menu_id       UUID NOT NULL,
-                              order_id      UUID NOT NULL,
-                              order_line_id UUID NOT NULL,
-                              event_type    VARCHAR(32) NOT NULL,   -- stock.reserved / stock.committed / stock.released / stock.insufficient
-                              quantity      INT NOT NULL,
-                              reason        VARCHAR(100),
-                              created_at    TIMESTAMP NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS stock_events (
+                                            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                            menu_id       UUID NOT NULL,
+                                            order_id      UUID NOT NULL,
+                                            order_line_id UUID NOT NULL,
+                                            event_type    VARCHAR(32) NOT NULL,
+                                            quantity      INT NOT NULL,
+                                            reason        VARCHAR(100),
+                                            created_at    TIMESTAMP NOT NULL DEFAULT now()
 );
 
--- 인덱스: 조회/리플레이 최적화
-CREATE INDEX idx_stock_events_menu ON stock_events(menu_id);
-CREATE INDEX idx_stock_events_order ON stock_events(order_id);
-CREATE INDEX idx_stock_events_line ON stock_events(order_line_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_menu  ON stock_events(menu_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_order ON stock_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_line  ON stock_events(order_line_id);
+
+-- 재고 읽기 모델 (프로젝션)
+CREATE TABLE IF NOT EXISTS stock_projection (
+                                                menu_id     UUID PRIMARY KEY,
+                                                avail       INT  NOT NULL DEFAULT 0,
+                                                reserved    INT  NOT NULL DEFAULT 0,
+                                                updated_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- projector의 멱등처리(이벤트 1회만 반영)
+CREATE TABLE IF NOT EXISTS stock_proj_processed (
+                                                    event_id    UUID PRIMARY KEY,
+                                                    processed_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_projection_updated ON stock_projection(updated_at);
 
 
