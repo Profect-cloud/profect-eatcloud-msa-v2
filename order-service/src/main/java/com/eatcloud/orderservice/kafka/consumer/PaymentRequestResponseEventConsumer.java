@@ -1,8 +1,10 @@
 package com.eatcloud.orderservice.kafka.consumer;
 
+import com.eatcloud.logging.kafka.KafkaConsumerLoggingUtil;
 import com.eatcloud.orderservice.event.PaymentRequestResponseEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -17,16 +19,37 @@ public class PaymentRequestResponseEventConsumer {
     private final ConcurrentHashMap<String, CompletableFuture<PaymentRequestResponseEvent>> pendingRequests = new ConcurrentHashMap<>();
 
     @KafkaListener(topics = "payment.request.response", groupId = "order-service", containerFactory = "paymentRequestKafkaListenerContainerFactory")
-    public void handlePaymentRequestResponse(PaymentRequestResponseEvent event) {
-        log.info("PaymentRequestResponseEvent 수신: orderId={}, customerId={}, sagaId={}, success={}", 
-                event.getOrderId(), event.getCustomerId(), event.getSagaId(), event.isSuccess());
+    public void handlePaymentRequestResponse(ConsumerRecord<String, PaymentRequestResponseEvent> record) {
+        
+        try {
+            // ⭐ Kafka 헤더에서 MDC 설정
+            KafkaConsumerLoggingUtil.setupMDCFromKafkaHeaders(record);
+            
+            PaymentRequestResponseEvent event = record.value();
+            log.info("PaymentRequestResponseEvent 수신: orderId={}, customerId={}, sagaId={}, success={}", 
+                    event.getOrderId(), event.getCustomerId(), event.getSagaId(), event.isSuccess());
 
-        CompletableFuture<PaymentRequestResponseEvent> future = pendingRequests.remove(event.getSagaId());
-        if (future != null) {
-            future.complete(event);
-            log.info("결제 요청 응답 처리 완료: sagaId={}", event.getSagaId());
-        } else {
-            log.warn("대기 중인 결제 요청을 찾을 수 없음: sagaId={}", event.getSagaId());
+            CompletableFuture<PaymentRequestResponseEvent> future = pendingRequests.remove(event.getSagaId());
+            if (future != null) {
+                future.complete(event);
+                log.info("결제 요청 응답 처리 완료: sagaId={}", event.getSagaId());
+            } else {
+                log.warn("대기 중인 결제 요청을 찾을 수 없음: sagaId={}", event.getSagaId());
+            }
+            
+            // ⭐ 성공 로깅
+            KafkaConsumerLoggingUtil.logKafkaConsumerEnd(record, true, null);
+            
+        } catch (Exception e) {
+            log.error("결제 요청 응답 처리 중 오류 발생: sagaId={}", record.value().getSagaId(), e);
+            
+            // ⭐ 실패 로깅
+            KafkaConsumerLoggingUtil.logKafkaConsumerEnd(record, false, e);
+            throw e;
+            
+        } finally {
+            // ⭐ MDC 정리
+            KafkaConsumerLoggingUtil.clearKafkaMDC();
         }
     }
 

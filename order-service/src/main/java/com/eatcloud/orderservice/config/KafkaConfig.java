@@ -1,5 +1,6 @@
 package com.eatcloud.orderservice.config;
 
+import com.eatcloud.logging.kafka.KafkaLoggingInterceptor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -19,6 +20,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -36,11 +38,15 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         
+        // ⭐ MDC 전파를 위한 Interceptor 추가
+        configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, 
+                List.of(KafkaLoggingInterceptor.class.getName()));
+        
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
-        configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000); // 재시도 간격
-        configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000); // 전체 타임아웃
-        configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000); // 요청 타임아웃
+        configProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000);
+        configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120000);
+        configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000);
         configProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
         configProps.put(ProducerConfig.LINGER_MS_CONFIG, 1);
         configProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
@@ -61,13 +67,10 @@ public class KafkaConfig {
                 (record, ex) -> new org.apache.kafka.common.TopicPartition(record.topic() + ".dlt", record.partition())
         );
 
-        // 재시도 설정: 3회 재시도, 1초 간격
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
-
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // 응답 토픽용 ErrorHandler (DLT 없음)
     @Bean
     public DefaultErrorHandler responseErrorHandler() {
         return new DefaultErrorHandler((record, exception) -> {
@@ -76,7 +79,6 @@ public class KafkaConfig {
         });
     }
 
-    // 요청 토픽용 ErrorHandler (DLT 있음)
     @Bean
     public DefaultErrorHandler requestErrorHandler() {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -109,9 +111,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-
         factory.setCommonErrorHandler(defaultErrorHandler());
-        
         return factory;
     }
 
@@ -135,7 +135,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> pointReservationKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointReservationConsumerFactory());
-        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        factory.setCommonErrorHandler(responseErrorHandler());
         return factory;
     }
 
@@ -159,7 +159,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> paymentRequestKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentRequestConsumerFactory());
-        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        factory.setCommonErrorHandler(responseErrorHandler());
         return factory;
     }
 
@@ -183,7 +183,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> pointReservationCancelKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointReservationCancelConsumerFactory());
-        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        factory.setCommonErrorHandler(responseErrorHandler());
         return factory;
     }
 
@@ -207,7 +207,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> paymentRequestCancelKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentRequestCancelConsumerFactory());
-        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        factory.setCommonErrorHandler(responseErrorHandler());
         return factory;
     }
 
@@ -231,7 +231,7 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> pointDeductionKafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointDeductionConsumerFactory());
-        factory.setCommonErrorHandler(responseErrorHandler()); // 응답 토픽용
+        factory.setCommonErrorHandler(responseErrorHandler());
         return factory;
     }
 
@@ -254,7 +254,7 @@ public class KafkaConfig {
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         DefaultErrorHandler dltErrorHandler = new DefaultErrorHandler((record, exception) -> { }, new FixedBackOff(0L, 0L));
         dltErrorHandler.setCommitRecovered(true);
-        factory.setCommonErrorHandler(dltErrorHandler); // DLT는 재시도/재DLT 없이 즉시 커밋
+        factory.setCommonErrorHandler(dltErrorHandler);
         return factory;
     }
-} 
+}

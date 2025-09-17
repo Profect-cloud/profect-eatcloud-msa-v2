@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.config;
 
+import com.eatcloud.logging.kafka.KafkaLoggingInterceptor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -17,6 +18,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -32,6 +34,10 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+
+        // ⭐ MDC 전파를 위한 Interceptor 추가
+        configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, 
+                List.of(KafkaLoggingInterceptor.class.getName()));
 
         // TLS 설정 (MSK 요구사항)
         configProps.put("security.protocol", "SSL");
@@ -63,7 +69,6 @@ public class KafkaConfig {
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // 요청 토픽용 ErrorHandler (DLT 있음)
     @Bean
     public DefaultErrorHandler requestErrorHandler() {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -106,7 +111,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
-        factory.setCommonErrorHandler(requestErrorHandler()); // 요청 토픽용
+        factory.setCommonErrorHandler(requestErrorHandler());
         
         return factory;
     }

@@ -1,5 +1,6 @@
 package com.eatcloud.customerservice.config;
 
+import com.eatcloud.logging.kafka.KafkaLoggingInterceptor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -18,6 +19,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -34,6 +36,10 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        
+        // ⭐ MDC 전파를 위한 Interceptor 추가
+        configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, 
+                List.of(KafkaLoggingInterceptor.class.getName()));
         
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
@@ -95,7 +101,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         
-        factory.setCommonErrorHandler(requestErrorHandler()); // 요청 토픽용
+        factory.setCommonErrorHandler(requestErrorHandler());
         
         return factory;
     }
@@ -121,7 +127,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(pointDeductionConsumerFactory());
 
-        factory.setCommonErrorHandler(requestErrorHandler()); // 요청 토픽용
+        factory.setCommonErrorHandler(requestErrorHandler());
         
         return factory;
     }
