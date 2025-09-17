@@ -243,3 +243,20 @@ CREATE INDEX IF NOT EXISTS idx_outbox_aggregate
 CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
     ON p_outbox(sent, created_at);
 
+CREATE TABLE stock_events (
+                              id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                              menu_id       UUID NOT NULL,
+                              order_id      UUID NOT NULL,
+                              order_line_id UUID NOT NULL,
+                              event_type    VARCHAR(32) NOT NULL,   -- stock.reserved / stock.committed / stock.released / stock.insufficient
+                              quantity      INT NOT NULL,
+                              reason        VARCHAR(100),
+                              created_at    TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- 인덱스: 조회/리플레이 최적화
+CREATE INDEX idx_stock_events_menu ON stock_events(menu_id);
+CREATE INDEX idx_stock_events_order ON stock_events(order_id);
+CREATE INDEX idx_stock_events_line ON stock_events(order_line_id);
+
+

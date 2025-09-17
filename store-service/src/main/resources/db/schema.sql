@@ -240,3 +240,19 @@ CREATE INDEX IF NOT EXISTS idx_outbox_aggregate
 -- (레거시 쿼리 호환 유지)
 CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
     ON p_outbox(sent, created_at);
+
+CREATE TABLE IF NOT EXISTS stock_events (
+                                            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                            menu_id       UUID NOT NULL,
+                                            order_id      UUID NOT NULL,
+                                            order_line_id UUID NOT NULL,
+                                            event_type    VARCHAR(32) NOT NULL,
+                                            quantity      INT NOT NULL,
+                                            reason        VARCHAR(100),
+                                            created_at    TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_events_menu  ON stock_events(menu_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_order ON stock_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_line  ON stock_events(order_line_id);
+
