@@ -49,3 +49,6 @@ profect-eatcloud-msa-v2/
 ![git\_readme\_img-001](https://github.com/user-attachments/assets/b7fbf51e-8a08-4a79-97c3-a2e7bdb66672)
 ### CI/CD 아키텍처
 ![git\_readme\_img-002](https://github.com/user-attachments/assets/d840e706-1ce6-4347-acf1-2c55231600fa)
+### 로깅 파이프라인 
+<img width="646" height="449" alt="스크린샷 2025-09-17 오후 4 46 02" src="https://github.com/user-attachments/assets/afb6624a-dc44-4885-b388-4a6d655133a7" />
+
