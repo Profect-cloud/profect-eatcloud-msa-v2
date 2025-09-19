@@ -1,7 +1,7 @@
+// com.eatcloud.storeservice.domain.outbox.repository.OutboxRepository.java
 package com.eatcloud.storeservice.domain.outbox.repository;
 
 import com.eatcloud.storeservice.domain.outbox.entity.Outbox;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
@@ -11,15 +11,47 @@ import java.util.UUID;
 
 public interface OutboxRepository extends JpaRepository<Outbox, UUID> {
 
+    /** 배치 픽업: 상태 PENDING & 재시도 만기, 경쟁 회피 */
+    @Query(value = """
+        SELECT * FROM p_outbox
+         WHERE status = 'PENDING'
+           AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+         ORDER BY created_at ASC
+         LIMIT :limit
+         FOR UPDATE SKIP LOCKED
+        """, nativeQuery = true)
+    List<Outbox> pickBatchForPublish(@Param("limit") int limit);
+
+    /** 발행 성공 마킹 (벌크 업데이트 후 flush/clear) */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
-      SELECT o FROM Outbox o
-       WHERE o.publishedAt IS NULL
-       ORDER BY o.createdAt ASC
+      UPDATE Outbox o
+         SET o.status = 'SENT',
+             o.publishedAt = CURRENT_TIMESTAMP,
+             o.sent = true
+       WHERE o.id = :id
     """)
-    List<Outbox> findUnpublished(Pageable pageable);
+    int markSent(@Param("id") UUID id);
 
-    @Modifying
-    @Query("UPDATE Outbox o SET o.publishedAt = :now WHERE o.id = :id AND o.publishedAt IS NULL")
-    int markPublished(@Param("id") UUID id, @Param("now") LocalDateTime now);
+    /** 재시도 예약 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+      UPDATE Outbox o
+         SET o.status = 'PENDING',
+             o.retryCount = o.retryCount + 1,
+             o.nextAttemptAt = :next
+       WHERE o.id = :id
+    """)
+    int markRetry(@Param("id") UUID id, @Param("next") LocalDateTime next);
+
+    /** 실패 종결 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+      UPDATE Outbox o
+         SET o.status = 'FAILED',
+             o.retryCount = o.retryCount + 1,
+             o.nextAttemptAt = NULL
+       WHERE o.id = :id
+    """)
+    int markFailed(@Param("id") UUID id);
 }
-

@@ -256,5 +256,36 @@ public class KafkaConfig {
         dltErrorHandler.setCommitRecovered(true);
         factory.setCommonErrorHandler(dltErrorHandler); // DLT는 재시도/재DLT 없이 즉시 커밋
         return factory;
+
     }
+
+    // === 재고 이벤트(stock-events) 전용: String → 수동 파싱 ===
+    @Bean
+    public ConsumerFactory<String, String> stockStringConsumerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+            @Value("${spring.kafka.consumer.group-id:order-service}") String baseGroupId
+    ) {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        // 재고 이벤트는 별도 그룹으로 분리 (기존 응답 리스너들과 충돌 방지)
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, baseGroupId + "-stock");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        // 필요시 fetch/max.poll 등 추가 설정
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> stockStringKafkaListenerContainerFactory(
+            ConsumerFactory<String, String> stockStringConsumerFactory
+    ) {
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
+        factory.setConsumerFactory(stockStringConsumerFactory);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.setCommonErrorHandler(responseErrorHandler()); // ✅ DLT 대신 스킵
+        factory.setConcurrency(2);
+        return factory;
+    }
+
 } 

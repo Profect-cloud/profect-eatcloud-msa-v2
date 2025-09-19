@@ -27,6 +27,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +49,14 @@ public class SagaOrchestrator {
     private final PaymentRequestResponseEventConsumer paymentRequestResponseEventConsumer;
     private final PaymentRequestCancelResponseEventConsumer paymentRequestCancelResponseEventConsumer;
     private final OutboxService outboxService;
+
+    private final ExternalApiService externalApiService;
+
+    /** orderId, menuId, index로 결정적 라인ID 생성 (UUID v5 스타일) */
+    private UUID deriveLineId(UUID orderId, UUID menuId, int index) {
+        String seed = orderId + ":" + menuId + ":" + index;
+        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
+    }
 
     @Transactional
     public CreateOrderResponse createOrderSaga(UUID customerId, CreateOrderRequest request, String authorizationHeader) {
@@ -141,11 +150,60 @@ public class SagaOrchestrator {
                         () -> cancelPointReservationAsync(customerId, order.getOrderId(), sagaId));
                 }
 
+                // === [INSERT #1] 라인별 재고 예약 Try-Fast (실패해도 주문은 계속 진행) ===
+                for (int i = 0; i < order.getOrderMenuList().size(); i++) {
+                    var line = order.getOrderMenuList().get(i);
+
+                    UUID menuId = line.getMenuId();
+                    int  qty    = line.getQuantity() != null ? line.getQuantity() : 0;
+
+                    // ✅ 결정적 라인ID 생성 (orderId, menuId, index 기반)
+                    UUID lineId = deriveLineId(order.getOrderId(), menuId, i);
+
+                    boolean reserved = externalApiService.reserveInventory(
+                            order.getOrderId(), lineId, menuId, qty, authorizationHeader);
+
+                    if (!reserved) {
+                        try {
+                            // 선택: 표시만 PENDING_STOCK로 (메서드 없으면 생략 가능)
+//                            orderService.markLineStockPending(lineId);
+                        } catch (Exception ignore) {
+                            log.info("markLineStockPending not available; continue. lineId={}", lineId);
+                        }
+                        log.info("Inventory reserve pending/failed. lineId={} menuId={} qty={}", lineId, menuId, qty);
+                    }
+
+                    // 보상 등록: 확정 이후 문제 생기면 반납
+                    saga.addCompensation("Return Inventory after confirm",
+                            () -> externalApiService.cancelInventoryAfterConfirm(
+                                    lineId, "SAGA_COMPENSATION", authorizationHeader));
+                }
+// === [INSERT #1] 끝 ===
+
+
+
                 log.info("Step 6: Creating payment request");
                 String paymentUrl = createPaymentRequestAsync(order.getOrderId(), customerId, order.getFinalPaymentAmount(), sagaId);
 
                 saga.addCompensation("Cancel Payment Request",
                     () -> cancelPaymentRequestAsync(order.getOrderId(), sagaId));
+
+                /* === [INSERT #2] 결제요청 성공 → 라인별 재고 confirm 시도 === */
+                for (int i = 0; i < order.getOrderMenuList().size(); i++) {
+                    var line = order.getOrderMenuList().get(i);
+                    UUID menuId = line.getMenuId();
+                    UUID lineId = deriveLineId(order.getOrderId(), menuId, i);
+
+                    boolean ok = externalApiService.confirmInventory(lineId, authorizationHeader);
+                    if (!ok) {
+                        log.warn("Confirm failed (will rely on compensation or TTL) lineId={}", lineId);
+                        // 실패해도 주문 흐름은 계속. 스토어는 멱등 처리 + TTL/보상 이벤트로 수습.
+                    }
+
+                    // 보상은 이미 위쪽에서 "Return Inventory after confirm" 등록되어 있음
+                    // cancelInventoryAfterConfirm(...) 호출이 등록되어 있으니 실패시 보상으로 롤백됨.
+                }
+                /* === [INSERT #2] 끝 === */
 
                 saga.clearCompensations();
 

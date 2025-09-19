@@ -295,6 +295,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-eatcloud_user}
       DB_PASSWORD: ${DB_PASSWORD:-devpassword123}
       REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
     depends_on:
       eatcloud-db:
@@ -319,6 +320,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-devpassword123}
       REDIS_HOST: redis
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       eatcloud-db:
         condition: service_healthy

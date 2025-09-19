@@ -2,8 +2,8 @@ package com.eatcloud.storeservice.domain.outbox.service;
 
 import com.eatcloud.storeservice.domain.outbox.entity.Outbox;
 import com.eatcloud.storeservice.domain.outbox.repository.OutboxRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,19 +21,31 @@ public class OutboxAppenderImpl implements OutboxAppender {
 
     @Override
     @Transactional
-    public void append(String eventType, UUID aggregateId, Map<String, ?> payloadMap) {
-        try {
-            JsonNode json = om.valueToTree(payloadMap); // 🔴 JsonNode 로 변환
-            Outbox o = Outbox.builder()
-                    .id(UUID.randomUUID())
-                    .eventType(eventType)
-                    .aggregateId(aggregateId)
-                    .payload(json)                // 🔴 JsonNode 를 그대로 저장
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            repo.save(o);
-        } catch (Exception e) {
-            throw new RuntimeException("OUTBOX_APPEND_FAILED", e);
-        }
+    public void append(String eventType, String aggregateType, UUID aggregateId,
+                       Map<String, ?> payloadMap, Map<String, ?> headersMap) {
+        JsonNode payload = om.valueToTree(payloadMap);
+        JsonNode headers = headersMap != null ? om.valueToTree(headersMap) : null;
+
+        Outbox o = Outbox.builder()
+                .id(UUID.randomUUID())
+                .eventType(eventType)
+                .aggregateType(aggregateType)
+                .aggregateId(aggregateId)
+                .payload(payload)
+                .headers(headers)
+                .createdAt(LocalDateTime.now())
+                .status(Outbox.Status.PENDING)
+                .retryCount(0)
+                .sent(false)
+                .build();
+
+        repo.save(o);
+    }
+
+    @Override
+    @Transactional
+    public void append(String eventType, String aggregateType, UUID aggregateId,
+                       Map<String, ?> payloadMap) {
+        append(eventType, aggregateType, aggregateId, payloadMap, null);
     }
 }
