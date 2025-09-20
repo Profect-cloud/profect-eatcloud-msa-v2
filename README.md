@@ -24,6 +24,8 @@ Goorm 프로펙트 클라우드 엔지니어링 과정 3기 – 3차 프로젝�
 - Kafka 이벤트 기반 재고 관리
 - Redis 기반 분산락(Redisson + Lua Script)
 - 이벤트 소싱, CQRS 패턴으로 조회와 명령 분리
+- MDC + HTTP Filter 기반 분산 요청 추적
+- AWS Kinesis를 통한 실시간 이벤트 스트리밍
 
 ## 🏗 아키텍처
 ### 디렉토리 구조
@@ -49,3 +51,5 @@ profect-eatcloud-msa-v2/
 ![git\_readme\_img-001](https://github.com/user-attachments/assets/b7fbf51e-8a08-4a79-97c3-a2e7bdb66672)
 ### CI/CD 아키텍처
 ![git\_readme\_img-002](https://github.com/user-attachments/assets/d840e706-1ce6-4347-acf1-2c55231600fa)
+### 로깅 아키텍처
+<img width="870" height="615" alt="Image" src="https://github.com/user-attachments/assets/52b1a4de-c01c-491f-9218-815b09ceec2d" />
