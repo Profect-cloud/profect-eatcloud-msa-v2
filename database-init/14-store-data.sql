@@ -128,3 +128,7 @@ INSERT INTO p_menus (
     '감자튀김', 'SIDE', 4000, '바삭한 감자튀김', true, null, false, 0,
     now(), 'system', now(), 'system'
 ) ON CONFLICT (menu_id) DO NOTHING;
+
+INSERT INTO inventory_stock(menu_id, is_unlimited, available_qty, reserved_qty)
+VALUES ('11111111-1111-1111-1111-111111111111', false, 100, 0)
+ON CONFLICT (menu_id) DO NOTHING;

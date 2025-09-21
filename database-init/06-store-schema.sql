@@ -209,17 +209,69 @@ CREATE INDEX IF NOT EXISTS idx_inv_res_order
     ON inventory_reservations(order_id);
 
 /* =========================
-   Outbox for ES/CQRS
+   Outbox for ES/CQRS (store-service)
    ========================= */
-CREATE TABLE IF NOT EXISTS outbox (
-                                      id           UUID PRIMARY KEY,
-                                      event_type   VARCHAR(50) NOT NULL,   -- stock.reserved / stock.released / stock.adjusted
-                                      aggregate_id UUID NOT NULL,          -- menu_id or reservation_id
-                                      payload      JSONB NOT NULL,         -- {menuId, orderId, orderLineId, qty, reason, occurredAt, eventVersion}
-                                      created_at   TIMESTAMP NOT NULL DEFAULT now(),
-                                      published_at TIMESTAMP
+CREATE TABLE IF NOT EXISTS p_outbox (
+                                        id               UUID PRIMARY KEY,                 -- 앱에서 UUID 생성
+                                        event_type       VARCHAR(150) NOT NULL,           -- 예: stock.reserved / stock.released / stock.committed / stock.insufficient
+                                        aggregate_type   VARCHAR(100) NOT NULL,           -- 예: INVENTORY_ITEM / MENU / ORDER_LINE 등
+                                        aggregate_id     UUID NOT NULL,
+                                        payload          JSONB NOT NULL,                  -- 이벤트 바디
+                                        headers          JSONB,                           -- 옵션: correlationId 등 메타
+
+                                        created_at       TIMESTAMP     NOT NULL,
+                                        status           VARCHAR(20)   NOT NULL DEFAULT 'PENDING',  -- PENDING | SENT | FAILED
+                                        retry_count      INT           NOT NULL DEFAULT 0,
+                                        next_attempt_at  TIMESTAMPTZ,
+                                        published_at     TIMESTAMPTZ,
+
+    -- 레거시 호환(점진 폐기 가능)
+                                        sent             BOOLEAN       NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_unpublished
-    ON outbox (published_at) WHERE published_at IS NULL;
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_outbox_status
+    ON p_outbox(status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_at
+    ON p_outbox(next_attempt_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate
+    ON p_outbox(aggregate_type, aggregate_id);
+
+-- (레거시 쿼리 호환 유지)
+CREATE INDEX IF NOT EXISTS idx_outbox_sent_created
+    ON p_outbox(sent, created_at);
+
+CREATE TABLE IF NOT EXISTS stock_events (
+                                            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                            menu_id       UUID NOT NULL,
+                                            order_id      UUID NOT NULL,
+                                            order_line_id UUID NOT NULL,
+                                            event_type    VARCHAR(32) NOT NULL,
+                                            quantity      INT NOT NULL,
+                                            reason        VARCHAR(100),
+                                            created_at    TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_events_menu  ON stock_events(menu_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_order ON stock_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_stock_events_line  ON stock_events(order_line_id);
+
+-- 재고 읽기 모델 (프로젝션)
+CREATE TABLE IF NOT EXISTS stock_projection (
+                                                menu_id     UUID PRIMARY KEY,
+                                                avail       INT  NOT NULL DEFAULT 0,
+                                                reserved    INT  NOT NULL DEFAULT 0,
+                                                updated_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- projector의 멱등처리(이벤트 1회만 반영)
+CREATE TABLE IF NOT EXISTS stock_proj_processed (
+                                                    event_id    UUID PRIMARY KEY,
+                                                    processed_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_projection_updated ON stock_projection(updated_at);
+
 
