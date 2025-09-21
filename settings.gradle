@@ -12,3 +12,4 @@ include 'payment-service'
 
 include 'auto-time'
 include 'auto-response'
+include 'logging-common'

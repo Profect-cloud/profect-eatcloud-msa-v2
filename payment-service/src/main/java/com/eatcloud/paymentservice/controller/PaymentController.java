@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.controller;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.paymentservice.service.PaymentService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Payment Service", description = "결제 서비스 API")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
 public class PaymentController {
     
     private final PaymentService paymentService;

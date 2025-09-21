@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.manager.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.dto.MenuRequestDto;
 import com.eatcloud.storeservice.domain.menu.dto.MenuUpdateRequestDto;
 import com.eatcloud.storeservice.domain.menu.entity.Menu;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ManagerService {
 
     private final MenuRepository menuRepository;

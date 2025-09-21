@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.manager.controller;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.manager.message.ManagerResponseMessage;
 import com.eatcloud.storeservice.domain.manager.service.ManagerService;
 import com.eatcloud.storeservice.domain.menu.dto.MenuRequestDto;
@@ -28,6 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('MANAGER')")
 @Tag(name = "5. ManagerController")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ManagerController {
 
     private final ManagerService managerService;

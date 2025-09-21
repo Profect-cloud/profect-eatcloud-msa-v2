@@ -10,8 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.util.UUID;
 
+import com.eatcloud.logging.annotation.Loggable;
+
 @Slf4j
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ExternalApiService {
 
     private final RestTemplate restTemplate;

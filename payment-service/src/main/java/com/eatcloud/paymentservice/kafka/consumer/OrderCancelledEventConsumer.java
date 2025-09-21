@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.kafka.consumer;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.paymentservice.event.OrderCancelledEvent;
 import com.eatcloud.paymentservice.service.PaymentService;
 
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class OrderCancelledEventConsumer {
 
     private final PaymentService paymentService;

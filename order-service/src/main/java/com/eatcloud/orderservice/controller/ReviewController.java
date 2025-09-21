@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.request.ReviewRequestDto;
 import com.eatcloud.orderservice.dto.response.ReviewResponseDto;
 import com.eatcloud.orderservice.service.ReviewService;
@@ -27,6 +29,7 @@ import com.eatcloud.orderservice.service.ReviewService;
 @RestController
 @RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ReviewController {
 
 	private final ReviewService reviewService;

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.entity.Review;
 import com.eatcloud.autotime.repository.SoftDeleteRepository;
 
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public interface ReviewRepository extends SoftDeleteRepository<Review, UUID> {
 
 	boolean existsByOrderOrderIdAndDeletedAtIsNull(UUID orderId);

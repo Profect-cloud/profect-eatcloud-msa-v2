@@ -5,6 +5,8 @@ import com.eatcloud.adminservice.domain.admin.exception.AdminErrorCode;
 import com.eatcloud.adminservice.domain.admin.exception.AdminException;
 import com.eatcloud.adminservice.domain.category.entity.*;
 import com.eatcloud.adminservice.domain.category.repository.*;
+import com.eatcloud.logging.annotation.Loggable;
+
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class GenericCategoryService {
 
 	private final Map<String, BaseCategoryRepository<? extends BaseCategory>> repoMap;

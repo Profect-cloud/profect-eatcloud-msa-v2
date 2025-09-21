@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.entity.Order;
 import com.eatcloud.autotime.repository.SoftDeleteRepository;
 
 @Repository
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public interface OrderRepository extends SoftDeleteRepository<Order, UUID> {
     @Query("SELECT o FROM Order o WHERE o.orderNumber = :orderNumber")
     Optional<Order> findByOrderNumber(@Param("orderNumber") String orderNumber);

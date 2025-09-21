@@ -62,21 +62,21 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
 		if (token != null) {
 			try {
+				// 먼저 토큰이 유효한지 확인
 				if (!jwtTokenProvider.validateToken(token)) {
-					UUID userId = jwtTokenProvider.getIdFromToken(token);
-					String userType = jwtTokenProvider.getTypeFromToken(token);
-					String newToken = jwtTokenProvider.createToken(userId, userType);
-					response.setHeader("Authorization", "Bearer " + newToken);
-					token = newToken;
+					response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+					response.getWriter().write("{\"message\": \"유효하지 않은 토큰입니다. 다시 로그인하세요.\"}");
+					return;
 				}
 
+				// 토큰이 유효한 경우에만 사용자 정보 추출
 				UUID userId = jwtTokenProvider.getIdFromToken(token);
 				String userType = jwtTokenProvider.getTypeFromToken(token);
 
 				UserDetails userDetails = customUserDetailsService.loadUserByIdAndType(userId, userType);
 
 				UsernamePasswordAuthenticationToken authentication =
-						new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+					new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
 				SecurityContextHolder.getContext().setAuthentication(authentication);
 			} catch (ExpiredJwtException e) {
@@ -84,7 +84,9 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 				response.getWriter().write("{\"message\": \"세션이 만료되었습니다. 다시 로그인하세요.\"}");
 				return;
 			} catch (Throwable e) {
-				throw new RuntimeException(e);
+				response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+				response.getWriter().write("{\"message\": \"토큰 처리 중 오류가 발생했습니다.\"}");
+				return;
 			}
 		}
 

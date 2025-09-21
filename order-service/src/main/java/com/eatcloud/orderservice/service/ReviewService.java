@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.request.ReviewRequestDto;
 import com.eatcloud.orderservice.dto.response.ReviewResponseDto;
 import com.eatcloud.orderservice.entity.Order;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class ReviewService {
 
 	private final ReviewRepository reviewRepository;

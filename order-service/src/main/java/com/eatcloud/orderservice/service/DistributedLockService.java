@@ -10,9 +10,12 @@ import org.springframework.stereotype.Service;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import com.eatcloud.logging.annotation.Loggable;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class DistributedLockService {
     
     private final RedissonClient redissonClient;

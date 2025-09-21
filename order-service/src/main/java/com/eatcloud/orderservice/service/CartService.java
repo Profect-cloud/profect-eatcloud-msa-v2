@@ -4,6 +4,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.dto.CartItem;
 import com.eatcloud.orderservice.dto.request.AddCartItemRequest;
 import com.eatcloud.orderservice.dto.request.UpdateCartItemRequest;
@@ -31,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class CartService {
 
     private final RedisTemplate<String, Object> redisTemplate;

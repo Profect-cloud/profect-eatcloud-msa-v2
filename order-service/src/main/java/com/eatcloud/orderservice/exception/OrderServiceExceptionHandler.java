@@ -10,7 +10,7 @@ import org.springframework.web.client.RestClientException;
 
 @RestControllerAdvice
 @Slf4j
-public class GlobalExceptionHandler {
+public class OrderServiceExceptionHandler {
 
     @ExceptionHandler(CartException.class)
     public ResponseEntity<ApiResponse<Object>> handleCartException(CartException e) {

@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.reviews.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.reviews.client.OrdersReviewClient;
 import com.eatcloud.storeservice.domain.reviews.dto.*;
 import com.eatcloud.storeservice.domain.reviews.util.SortWhitelist;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PublicReviewQueryService {
 
     private final OrdersReviewClient orders;

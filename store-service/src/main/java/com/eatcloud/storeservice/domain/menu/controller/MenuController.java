@@ -1,6 +1,7 @@
 package com.eatcloud.storeservice.domain.menu.controller;
 
 import com.eatcloud.autoresponse.core.ApiResponse;
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.dto.MenuResponseDto;
 import com.eatcloud.storeservice.domain.menu.entity.Menu;
 import com.eatcloud.storeservice.domain.menu.service.MenuService;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/stores/{store_id}/menus")
 @AllArgsConstructor
 @Tag(name = "5-2. MenuController")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class MenuController {
 	private final MenuService menuService;
 

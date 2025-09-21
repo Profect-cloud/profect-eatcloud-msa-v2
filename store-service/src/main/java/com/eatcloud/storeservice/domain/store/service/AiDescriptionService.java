@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.store.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.menu.exception.MenuErrorCode;
 import com.eatcloud.storeservice.domain.menu.exception.MenuException;
 import com.eatcloud.storeservice.domain.store.dto.AiDescriptionRequestDto;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class AiDescriptionService {
 
     private final WebClient webClient;

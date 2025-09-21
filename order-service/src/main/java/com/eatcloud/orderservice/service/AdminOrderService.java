@@ -3,6 +3,8 @@ package com.eatcloud.orderservice.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.orderservice.entity.Order;
 import com.eatcloud.orderservice.repository.OrderRepository;
 import com.eatcloud.orderservice.dto.response.AdminOrderResponseDto;
@@ -13,6 +15,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class AdminOrderService {
 
     private final OrderRepository orderRepository;

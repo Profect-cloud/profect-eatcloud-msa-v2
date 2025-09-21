@@ -28,10 +28,12 @@ import com.eatcloud.customerservice.error.CustomerErrorCode;
 import com.eatcloud.autoresponse.error.BusinessException;
 import com.eatcloud.customerservice.message.ResponseMessage;
 import com.eatcloud.customerservice.service.AddressService;
+import com.eatcloud.logging.annotation.Loggable;
 
 @RestController
 @RequestMapping("/api/v1/customers/addresses")
 @Tag(name = "3-2. AddressController", description = "배송지 관리 API")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true)
 public class AddressController {
 
 	private final AddressService addressService;

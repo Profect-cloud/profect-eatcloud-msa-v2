@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.reviews.controller;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.reviews.dto.PublicReviewFilter;
 import com.eatcloud.storeservice.domain.reviews.dto.PublicReviewListResponse;
 import com.eatcloud.storeservice.domain.reviews.dto.RatingSummaryResponse;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/stores")
 @RequiredArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class PublicReviewController {
 
     private final PublicReviewQueryService service;

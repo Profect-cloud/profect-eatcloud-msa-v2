@@ -5,6 +5,8 @@ import com.eatcloud.adminservice.domain.category.entity.MenuCategory;
 import com.eatcloud.adminservice.domain.category.entity.StoreCategory;
 import com.eatcloud.adminservice.domain.category.repository.MenuCategoryRepository;
 import com.eatcloud.adminservice.domain.category.repository.StoreCategoryRepository;
+import com.eatcloud.logging.annotation.Loggable;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/categories")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
 public class AdminCategoryInternalController {
 
     private final StoreCategoryRepository storeRepo;

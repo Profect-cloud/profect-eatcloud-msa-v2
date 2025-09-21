@@ -1,5 +1,6 @@
 package com.eatcloud.paymentservice.config;
 
+import com.eatcloud.logging.kafka.KafkaLoggingInterceptor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -17,6 +18,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -32,6 +34,14 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+
+        // ⭐ MDC 전파를 위한 Interceptor 추가
+        configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, 
+                List.of(KafkaLoggingInterceptor.class.getName()));
+
+        // TLS 설정 (MSK 요구사항)
+        configProps.put("security.protocol", "SSL");
+        configProps.put("ssl.endpoint.identification.algorithm", "https");
 
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
@@ -59,7 +69,6 @@ public class KafkaConfig {
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // 요청 토픽용 ErrorHandler (DLT 있음)
     @Bean
     public DefaultErrorHandler requestErrorHandler() {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -78,6 +87,17 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        
+        // TLS 설정 (MSK 요구사항)
+        configProps.put("security.protocol", "SSL");
+        configProps.put("ssl.endpoint.identification.algorithm", "https");
+
+        // 메모리 최적화 설정
+        configProps.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 1024 * 1024 * 5); // 5MB (기본 50MB)
+        configProps.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 1024 * 512); // 512KB (기본 1MB)
+        configProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100); // 기본 500
+        configProps.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, 32 * 1024); // 32KB (기본 64KB)
+        configProps.put(ConsumerConfig.SEND_BUFFER_CONFIG, 32 * 1024); // 32KB
 
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
@@ -91,7 +111,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
-        factory.setCommonErrorHandler(requestErrorHandler()); // 요청 토픽용
+        factory.setCommonErrorHandler(requestErrorHandler());
         
         return factory;
     }

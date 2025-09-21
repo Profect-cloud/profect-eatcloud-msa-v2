@@ -11,9 +11,12 @@ import reactor.core.publisher.Mono;
 import java.util.Base64;
 import java.util.Map;
 
+import com.eatcloud.logging.annotation.Loggable;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class TossPaymentService {
     
     private final WebClient tossWebClient;

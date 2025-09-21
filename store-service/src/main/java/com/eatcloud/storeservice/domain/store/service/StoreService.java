@@ -1,5 +1,6 @@
 package com.eatcloud.storeservice.domain.store.service;
 
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.store.dto.StoreKeywordSearchRequestDto;
 import com.eatcloud.storeservice.domain.store.dto.StoreSearchByMenuCategoryRequestDto;
 import com.eatcloud.storeservice.domain.store.dto.StoreSearchRequestDto;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class StoreService {
 
     private final StoreRepository storeRepository;

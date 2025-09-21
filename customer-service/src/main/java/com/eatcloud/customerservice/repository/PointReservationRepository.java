@@ -3,6 +3,8 @@ package com.eatcloud.customerservice.repository;
 import com.eatcloud.autotime.repository.SoftDeleteRepository;
 import com.eatcloud.customerservice.entity.PointReservation;
 import com.eatcloud.customerservice.entity.ReservationStatus;
+import com.eatcloud.logging.annotation.Loggable;
+
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public interface PointReservationRepository extends SoftDeleteRepository<PointReservation, UUID> {
     
     Optional<PointReservation> findByOrderId(UUID orderId);

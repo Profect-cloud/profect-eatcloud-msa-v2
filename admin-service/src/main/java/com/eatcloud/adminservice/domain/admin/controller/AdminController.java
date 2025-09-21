@@ -4,6 +4,7 @@ import com.eatcloud.adminservice.domain.admin.dto.*;
 import com.eatcloud.adminservice.domain.admin.message.ResponseMessage;
 import com.eatcloud.adminservice.domain.admin.service.AdminService;
 import com.eatcloud.autoresponse.core.ApiResponse;
+import com.eatcloud.logging.annotation.Loggable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.UUID;
 @Tag(name = "2-1. Admin API", description = "관리자만 사용하는 API")
 @PreAuthorize("hasRole('ADMIN')")
 @AllArgsConstructor
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true, maskSensitiveData = true)
 public class AdminController {
 
 	private final AdminService adminService;

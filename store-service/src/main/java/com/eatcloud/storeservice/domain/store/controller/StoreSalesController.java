@@ -1,6 +1,7 @@
 package com.eatcloud.storeservice.domain.store.controller;
 
 import com.eatcloud.autoresponse.core.ApiResponse;
+import com.eatcloud.logging.annotation.Loggable;
 import com.eatcloud.storeservice.domain.store.dto.DailySalesResponseDto;
 import com.eatcloud.storeservice.domain.store.dto.MenuSalesRankingResponseDto;
 import com.eatcloud.storeservice.domain.store.dto.SalesPeriodSummaryResponseDto;
@@ -24,6 +25,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/stores/sales")
 @PreAuthorize("hasRole('MANAGER')")
 @Tag(name = "5-3.Store Sales Statistics", description = "가게 매출 통계 API")
+@Loggable(level = Loggable.LogLevel.INFO, logParameters = true, logResult = true,maskSensitiveData = true)
 public class StoreSalesController {
 
 	private final StoreSalesService storeSalesService;
